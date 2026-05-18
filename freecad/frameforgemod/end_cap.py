@@ -383,7 +383,11 @@ class ViewProviderEndCap:
     def attach(self, vobj):
         self.ViewObject = vobj
         self.Object = vobj.Object
-        vobj.ShapeColor = (0.6, 0.6, 0.6)
+        try:
+            from freecad.frameforgemod.preferences import get_profile_color
+            vobj.ShapeColor = get_profile_color()
+        except Exception:
+            vobj.ShapeColor = (0.6, 0.6, 0.6)
         vobj.Transparency = 0
 
     def getDisplayModes(self, obj):

@@ -3,7 +3,6 @@ import json
 import os
 import re
 from abc import ABC, abstractmethod
-from freecad.frameforgemod.preferences import get_profile_color
 
 import FreeCAD as App
 import FreeCADGui as Gui
@@ -482,7 +481,7 @@ class CreateProfileTaskPanel(BaseProfileTaskPanel):
         for o in self._objects.values():
             try:
                 o.ViewObject.Transparency = 0
-                o.ViewObject.ShapeColor = get_profile_color()
+                o.ViewObject.ShapeColor = (0.44, 0.47, 0.5)
             except Exception:
                 pass
         self._objects.clear()
@@ -528,7 +527,7 @@ class CreateProfileTaskPanel(BaseProfileTaskPanel):
             for o in self._objects.values():
                 try:
                     o.ViewObject.Transparency = 0
-                    o.ViewObject.ShapeColor = get_profile_color()
+                    o.ViewObject.ShapeColor = (0.44, 0.47, 0.5)
                 except Exception:
                     pass
 

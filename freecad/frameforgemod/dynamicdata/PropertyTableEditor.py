@@ -189,20 +189,20 @@ class PropertyTableEditor(QtGui.QDialog):
                 result = self.obj.evalExpression(rewritten[1:])
                 if result is not None:
                     return str(result)
-            except:
+            except Exception:
                 pass
             # Fall back to raw expression
             try:
                 result = self.obj.evalExpression(expr)
                 if result is not None:
                     return str(result)
-            except:
+            except Exception:
                 pass
             return "?"
         try:
             import ast
             return str(ast.literal_eval(value))
-        except:
+        except (ValueError, SyntaxError):
             return value
 
     def _addRowToTable(self, name, type_name, value, group, tooltip=""):
@@ -403,12 +403,12 @@ class PropertyTableEditor(QtGui.QDialog):
                     if entry['group']:
                         try:
                             self.obj.setGroupOfProperty(name, entry['group'])
-                        except:
+                        except Exception:
                             pass
                 if entry.get('tooltip_changed') and entry['tooltip']:
                     try:
                         self.obj.setDocumentationOfProperty(name, entry['tooltip'])
-                    except:
+                    except Exception:
                         pass
 
             # 3. Add new properties
@@ -457,10 +457,10 @@ class PropertyTableEditor(QtGui.QDialog):
             typed_val = value
             try:
                 typed_val = ast.literal_eval(value)
-            except:
+            except (ValueError, SyntaxError):
                 try:
                     typed_val = self.cmd.eval_expr(value)
-                except:
+                except Exception:
                     pass  # keep as string
             try:
                 setattr(self.obj, name, typed_val)

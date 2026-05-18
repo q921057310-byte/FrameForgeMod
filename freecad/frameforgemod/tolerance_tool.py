@@ -275,7 +275,7 @@ class TQueryPanel(QtGui.QDialog):
         cols = SHAFT_ORDER if is_hole else HOLE_ORDER
         try:
             nom = float(self._sz.text())
-        except:
+        except (ValueError, TypeError):
             nom = 50
         idx = _size_idx(nom)
 
@@ -326,7 +326,7 @@ class TQueryPanel(QtGui.QDialog):
         is_hole = self._mode.currentIndex() == 0
         try:
             nom = float(self._sz.text())
-        except:
+        except (ValueError, TypeError):
             nom = 50
         if is_hole:
             fi = FitInfo(nom, parts[0], parts[1])
@@ -353,7 +353,7 @@ class TQueryPanel(QtGui.QDialog):
             return
         try:
             nom = float(self._sz.text())
-        except:
+        except (ValueError, TypeError):
             nom = 50
         is_hole = self._mode.currentIndex() == 0
         if is_hole:
@@ -387,7 +387,7 @@ class TQueryCommand:
         global _inst
         if _inst is not None:
             try: _inst.close()
-            except: pass
+            except Exception: pass
         _inst = TQueryPanel()
         _inst.show()
 

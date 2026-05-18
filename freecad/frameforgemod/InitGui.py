@@ -2,6 +2,7 @@ import os
 
 import FreeCAD as App
 import FreeCADGui as Gui
+from PySide import QtCore
 
 import freecad.frameforgemod._bridge
 
@@ -210,6 +211,7 @@ class FrameForgemod(Gui.Workbench):
         "DynamicData2AddProperty",
         "DynamicData2CopyProperty",
         "DynamicData2CreateConfiguration",
+        "DynamicData2Sliders",
     ]
 
     toolbox_other = ["frameforgemod_AddVent", "frameforgemod_PatternFill", "frameforgemod_OffsetPlane"]
@@ -302,7 +304,6 @@ class FrameForgemod(Gui.Workbench):
         from freecad.frameforgemod.ff_tools import translate
 
         App.Console.PrintMessage(translate("frameforgemod", "Workbench frameforge activated.") + "\n")
-        self._connect_color_signal()
 
     def Deactivated(self):
         """
@@ -311,29 +312,44 @@ class FrameForgemod(Gui.Workbench):
         from freecad.frameforgemod.ff_tools import translate
 
         App.Console.PrintMessage(translate("frameforgemod", "Workbench frameforge de-activated.") + "\n")
-        self._disconnect_color_signal()
-
-    def _connect_color_signal(self):
-        try:
-            self._color_signal = App.signalNewObject.connect(self._on_new_object)
-        except Exception:
-            pass
-
-    def _disconnect_color_signal(self):
-        try:
-            App.signalNewObject.disconnect(self._color_signal)
-        except Exception:
-            pass
-
-    @staticmethod
-    def _on_new_object(obj):
-        try:
-            from freecad.frameforgemod.preferences import get_profile_color
-            vo = obj.ViewObject
-            if hasattr(vo, "ShapeColor"):
-                vo.ShapeColor = get_profile_color()
-        except Exception:
-            pass
 
 
 Gui.addWorkbench(FrameForgemod())
+
+# Global color signal - Boolean objects inherit parent color
+def _ff_color_new_object(obj):
+    try:
+        if obj.TypeId not in ("Part::Cut", "Part::MultiCommon", "Part::Fuse"):
+            return
+        vo = obj.ViewObject
+        if not hasattr(vo, "ShapeColor"):
+            return
+        def _apply():
+            try:
+                base = getattr(obj, "Base", None)
+                tool = getattr(obj, "Tool", None)
+                parent = None
+                for cand in (base, tool):
+                    if cand is None:
+                        continue
+                    if hasattr(cand, "ProfileWidth"):
+                        parent = cand
+                        break
+                    if hasattr(cand, "TrimmedBody") and cand.TrimmedBody is not None:
+                        parent = cand.TrimmedBody
+                        break
+                if parent is not None:
+                    try:
+                        vo.ShapeColor = parent.ViewObject.ShapeColor
+                    except Exception:
+                        pass
+            except Exception:
+                pass
+        QtCore.QTimer.singleShot(50, _apply)
+    except Exception:
+        pass
+
+try:
+    App.signalNewObject.connect(_ff_color_new_object)
+except Exception:
+    pass

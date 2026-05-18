@@ -117,21 +117,95 @@ class ColorProfilesCommand:
         sel = FreeCADGui.Selection.getSelection()
         objs = sel if sel else doc.Objects
 
+        def to_float(v):
+            """Extract numeric value from string or Quantity."""
+            v = getattr(v, "Value", v)  # handle Quantity
+            if v is None:
+                return 0.0
+            try:
+                return float(v)
+            except (ValueError, TypeError):
+                import re
+                m = re.search(r"[\d\.\-]+", str(v))
+                return float(m.group()) if m else 0.0
+
         def get_profile(obj):
             """Get (Family, SizeName, Length, CutA, CutB) from profile or trimmed."""
             if hasattr(obj, "ProfileWidth") and hasattr(obj, "ProfileHeight"):
                 return (getattr(obj, "Family", ""),
                         getattr(obj, "SizeName", ""),
-                        round(float(getattr(obj, "Length", 0)), 1),
-                        getattr(obj, "CuttingAngleA", ""),
-                        getattr(obj, "CuttingAngleB", ""))
+                        round(to_float(getattr(obj, "Length", 0)), 1),
+                        round(to_float(getattr(obj, "CuttingAngleA", None)), 1),
+                        round(to_float(getattr(obj, "CuttingAngleB", None)), 1))
             if hasattr(obj, "TrimmedBody") and obj.TrimmedBody:
                 p = obj.TrimmedBody
                 return (getattr(p, "Family", ""),
                         getattr(p, "SizeName", ""),
-                        round(float(getattr(obj, "Length", 0)), 1),
-                        getattr(obj, "CuttingAngleA", ""),
-                        getattr(obj, "CuttingAngleB", ""))
+                        round(to_float(getattr(obj, "Length", 0) or 0), 1),
+                        round(to_float(getattr(p, "CuttingAngleA", None) or 0), 1),
+                        round(to_float(getattr(p, "CuttingAngleB", None) or 0), 1),
+                        getattr(obj, "CutType", ""),
+                        getattr(obj, "TrimmedProfileType", ""),
+                        round(to_float(getattr(obj, "Gap", 0) or 0), 1))
+            # Find parent profile for attached objects
+            parent = None
+            # Gusset: Face1 / Face2
+            for fprop in ("Face1", "Face2"):
+                if hasattr(obj, fprop):
+                    try:
+                        fv = getattr(obj, fprop)
+                        if fv and len(fv) > 0:
+                            parent = fv[0] if hasattr(fv[0], "ProfileWidth") else (fv[0][0] if isinstance(fv[0], (list, tuple)) else None)
+                    except Exception:
+                        pass
+                    if parent is not None:
+                        break
+            # End cap: BaseObject
+            if parent is None and hasattr(obj, "BaseObject") and obj.BaseObject:
+                try:
+                    parent = obj.BaseObject[0] if isinstance(obj.BaseObject, (list, tuple)) else obj.BaseObject
+                except Exception:
+                    pass
+            # ExtrudedCutout / general: Base
+            if parent is None and hasattr(obj, "Base") and obj.Base:
+                try:
+                    parent = obj.Base[0] if isinstance(obj.Base, (list, tuple)) else obj.Base
+                except Exception:
+                    pass
+            # WhistleConnector: DrillFace / EndFace
+            if parent is None and hasattr(obj, "DrillFace") and obj.DrillFace:
+                try:
+                    parent = obj.DrillFace[0]
+                except Exception:
+                    pass
+            if parent is None and hasattr(obj, "EndFace") and obj.EndFace:
+                try:
+                    parent = obj.EndFace[0]
+                except Exception:
+                    pass
+            # Boolean cut: Base / Tool
+            if parent is None and obj.TypeId in ("Part::Cut", "Part::MultiCommon", "Part::Fuse"):
+                for cand in (getattr(obj, "Base", None), getattr(obj, "Tool", None)):
+                    if cand is not None and hasattr(cand, "ProfileWidth"):
+                        parent = cand
+                        break
+            if parent is not None and hasattr(parent, "ProfileWidth"):
+                fam = getattr(parent, "Family", "")
+                szn = getattr(parent, "SizeName", "")
+                # Include object-specific properties in key
+                props = []
+                if hasattr(obj, "LegLength1"):
+                    props += [round(to_float(getattr(obj, "LegLength1", 0) or 0), 1),
+                             round(to_float(getattr(obj, "LegLength2", 0) or 0), 1),
+                             round(to_float(getattr(obj, "Thickness", 0) or 0), 1)]
+                elif hasattr(obj, "BaseObject"):
+                    props += [getattr(obj, "Type", ""),
+                             round(to_float(getattr(obj, "Thickness", 0) or 0), 1)]
+                else:
+                    props += [round(to_float(getattr(obj, "Length", 0) or 0), 1),
+                             round(to_float(getattr(obj, "CuttingAngleA", None) or 0), 1),
+                             round(to_float(getattr(obj, "CuttingAngleB", None) or 0), 1)]
+                return (fam, szn) + tuple(props)
             return None
 
         groups = {}
@@ -144,19 +218,41 @@ class ColorProfilesCommand:
             FreeCAD.Console.PrintMessage("No profiles or trimmed profiles found.\n")
             return
 
-        colors = [(0.85, 0.60, 0.10), (0.10, 0.50, 0.85), (0.85, 0.20, 0.20),
-                  (0.10, 0.75, 0.40), (0.70, 0.30, 0.80), (0.20, 0.70, 0.70),
-                  (0.90, 0.50, 0.10), (0.50, 0.50, 0.50), (0.10, 0.40, 0.60),
-                  (0.80, 0.40, 0.40), (0.40, 0.70, 0.30), (0.50, 0.30, 0.60)]
+        # High-contrast fixed palette
+        PALETTE = [
+            (1.0, 0.0, 0.0),   # red
+            (0.0, 0.5, 1.0),   # blue
+            (0.0, 0.8, 0.0),   # green
+            (1.0, 0.6, 0.0),   # orange
+            (0.8, 0.0, 0.8),   # purple
+            (0.0, 0.8, 0.8),   # cyan
+            (1.0, 1.0, 0.0),   # yellow
+            (1.0, 0.4, 0.7),   # pink
+            (0.5, 0.3, 0.0),   # brown
+            (0.5, 0.5, 0.5),   # gray
+        ]
 
-        for i, (key, objs) in enumerate(groups.items()):
-            color = colors[i % len(colors)]
+        sorted_keys = sorted(groups.keys(), key=str)
+        import hashlib, colorsys
+
+        def spec_color(key):
+            h = int(hashlib.md5(str(key).encode()).hexdigest()[:8], 16)
+            # Golden ratio hue spacing
+            hue = (h * 0.618033988749895) % 1.0
+            sat = 0.85  # high saturation for vivid colors
+            lit = 0.35 + (h % 30 - 15) / 60.0  # -0.25 to +0.25 variation
+            r, g, b = colorsys.hls_to_rgb(hue, lit, sat)
+            return (round(r, 2), round(g, 2), round(b, 2))
+
+        for key in sorted_keys:
+            objs = groups[key]
+            color = spec_color(key)
             for o in objs:
                 try:
                     o.ViewObject.ShapeColor = color
                 except Exception:
                     pass
-            FreeCAD.Console.PrintMessage(f"{objs[0].Family} {objs[0].SizeName} → color #{i+1}\n")
+            FreeCAD.Console.PrintMessage(f"{key[0]} {key[1]} L={key[2]} T={key[3]} → color\n")
 
         doc.recompute()
 

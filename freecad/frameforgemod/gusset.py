@@ -400,13 +400,15 @@ class ViewProviderGusset:
         vobj.Proxy = self
         self.ViewObject = vobj
         self.Object = vobj.Object
-        vobj.ShapeColor = (0.6, 0.6, 0.6)
-        vobj.Transparency = 0
 
     def attach(self, vobj):
         self.ViewObject = vobj
         self.Object = vobj.Object
-        vobj.ShapeColor = (0.6, 0.6, 0.6)
+        try:
+            from freecad.frameforgemod.preferences import get_profile_color
+            vobj.ShapeColor = get_profile_color()
+        except Exception:
+            vobj.ShapeColor = (0.6, 0.6, 0.6)
         vobj.Transparency = 0
 
     def updateData(self, fp, prop):
@@ -414,16 +416,16 @@ class ViewProviderGusset:
             try:
                 if fp.Face1 and len(fp.Face1) > 0 and fp.Face1[0]:
                     vp = fp.Face1[0].ViewObject
-                    self.ViewObject.ShapeColor = vp.ShapeColor
-                    self.ViewObject.Transparency = vp.Transparency
+                    fp.ViewObject.ShapeColor = vp.ShapeColor
+                    fp.ViewObject.Transparency = vp.Transparency
                     return
             except Exception:
                 pass
             try:
                 if fp.Face2 and len(fp.Face2) > 0 and fp.Face2[0]:
                     vp = fp.Face2[0].ViewObject
-                    self.ViewObject.ShapeColor = vp.ShapeColor
-                    self.ViewObject.Transparency = vp.Transparency
+                    fp.ViewObject.ShapeColor = vp.ShapeColor
+                    fp.ViewObject.Transparency = vp.Transparency
             except Exception:
                 pass
         return

@@ -1158,39 +1158,43 @@ class ImportAluminumProfileTaskPanel:
             return
 
         if self.target_profile is not None:
-            App.Console.PrintMessage(f"AluminumProfile: replacing cross-section of {self.target_profile.Label}\n")
+            # Ensure we have the DocumentObject, not the ViewProvider
+            obj = getattr(self.target_profile, "Object", self.target_profile)
+            if not hasattr(obj, "Label"):
+                obj = self.target_profile
+            App.Console.PrintMessage(f"AluminumProfile: replacing cross-section of {obj.Label}\n")
             doc = App.ActiveDocument
             doc.openTransaction("Edit Aluminum Profile")
-            shape_obj = getattr(self.target_profile, "CustomProfile", None)
+            shape_obj = getattr(obj, "CustomProfile", None)
             if shape_obj is not None and hasattr(shape_obj, "Shape"):
                 shape_obj.Shape = sketch_data["shape"]
                 shape_obj.Label = sketch_data["label"] + "_Shape"
 
-            proxy = getattr(self.target_profile, "Proxy", None)
+            proxy = getattr(obj, "Proxy", None)
             if proxy is not None:
                 if hasattr(proxy, "_cached_key"):
                     proxy._cached_key = None
                 if hasattr(proxy, "_cached_face"):
                     proxy._cached_face = None
-            self.target_profile.Label = sketch_data["label"].replace(" ", "_") + "_Profile"
-            if hasattr(self.target_profile, "RotationAngle"):
-                old_rot = self.target_profile.RotationAngle
+            obj.Label = sketch_data["label"].replace(" ", "_") + "_Profile"
+            if hasattr(obj, "RotationAngle"):
+                old_rot = obj.RotationAngle
                 new_rot = float(self.combo_rotation.currentText())
-                self.target_profile.RotationAngle = new_rot
+                obj.RotationAngle = new_rot
                 if old_rot != new_rot:
                     try:
-                        pl = self.target_profile.Placement
+                        pl = obj.Placement
                         if old_rot:
                             rot_z_inv = App.Rotation(App.Vector(0, 0, 1), -old_rot)
                             pl.Rotation = pl.Rotation.multiply(rot_z_inv)
                         if new_rot:
                             rot_z = App.Rotation(App.Vector(0, 0, 1), new_rot)
                             pl.Rotation = pl.Rotation.multiply(rot_z)
-                        self.target_profile.Placement = pl
+                        obj.Placement = pl
                     except Exception:
                         pass
 
-            siblings = self._find_part_siblings(self.target_profile)
+            siblings = self._find_part_siblings(obj)
             for sib in siblings:
                 sib_shape = getattr(sib, "CustomProfile", None)
                 if sib_shape is not None and hasattr(sib_shape, "Shape"):
@@ -1213,7 +1217,7 @@ class ImportAluminumProfileTaskPanel:
             doc.commitTransaction()
             doc.recompute()
             try:
-                self.target_profile.recompute()
+                obj.recompute()
             except Exception:
                 pass
             for sib in siblings:
@@ -1634,7 +1638,7 @@ class ImportAluminumProfileTaskPanel:
         """Get the direction from the shared corner into the other profile's interior."""
         ob_s = other_edge.Vertexes[0].Point
         ob_e = other_edge.Vertexes[-1].Point
-        other_far = ob_e if (ob_s - shared).Length < 0.01 else ob_s
+        other_far = ob_e if (ob_s - shared).Length < 0.5 else ob_s
         return (other_far - shared).normalize()
 
     def _store_overlap_end(self, profile, prop_prefix, sign, dir_to_neighbor, gap=0.0):
@@ -1643,13 +1647,13 @@ class ImportAluminumProfileTaskPanel:
         dir_prop = f"Overlap{prop_prefix}Dir"
         gap_prop = f"Overlap{prop_prefix}Gap"
         if not hasattr(profile, sign_prop):
-            profile.addProperty("App::PropertyFloat", sign_prop, "Overlap", "").OverlapASign = 0.0
+            profile.addProperty("App::PropertyFloat", sign_prop, "Overlap", "")
             profile.setEditorMode(sign_prop, 2)
         if not hasattr(profile, dir_prop):
-            profile.addProperty("App::PropertyVector", dir_prop, "Overlap", "").OverlapADir = App.Vector(0, 0, 0)
+            profile.addProperty("App::PropertyVector", dir_prop, "Overlap", "")
             profile.setEditorMode(dir_prop, 2)
         if not hasattr(profile, gap_prop):
-            profile.addProperty("App::PropertyFloat", gap_prop, "Overlap", "").OverlapAGap = 0.0
+            profile.addProperty("App::PropertyFloat", gap_prop, "Overlap", "")
             profile.setEditorMode(gap_prop, 2)
         setattr(profile, sign_prop, float(sign))
         setattr(profile, dir_prop, dir_to_neighbor)
@@ -1659,76 +1663,85 @@ class ImportAluminumProfileTaskPanel:
         profiles = [(obj, sel) for obj, sel in created if sel is not None and obj.TypeId == "Part::FeaturePython"]
         if len(profiles) < 2:
             return
+        # Only process consecutive pairs (wrap-around: last→first) for correct closed-loop overlap
         for i in range(len(profiles)):
-            for j in range(i + 1, len(profiles)):
-                obja, sela = profiles[i]
-                objb, selb = profiles[j]
-                e1 = sela.SubElementNames[0] if sela.SubElementNames else ""
-                e2 = selb.SubElementNames[0] if selb.SubElementNames else ""
-                if not e1 or not e2:
-                    continue
-                ea = sela.Object.getSubObject(e1)
-                eb = selb.Object.getSubObject(e2)
-                if not ea or not eb:
-                    continue
-                shared = None
+            j = (i + 1) % len(profiles)
+            obja, sela = profiles[i]
+            objb, selb = profiles[j]
+            e1 = sela.SubElementNames[0] if sela.SubElementNames else ""
+            e2 = selb.SubElementNames[0] if selb.SubElementNames else ""
+            if not e1 or not e2:
+                continue
+            ea = sela.Object.getSubObject(e1)
+            eb = selb.Object.getSubObject(e2)
+            if not ea or not eb:
+                continue
+            shared = None
+            for va in ea.Vertexes:
+                for vb in eb.Vertexes:
+                    if (va.Point - vb.Point).Length < 0.5:
+                        shared = va.Point
+                        break
+                if shared:
+                    break
+            if shared is None:
+                min_d = float("inf")
+                best_va = best_vb = None
                 for va in ea.Vertexes:
                     for vb in eb.Vertexes:
-                        if (va.Point - vb.Point).Length < 0.01:
-                            shared = va.Point
-                            break
-                    if shared:
-                        break
-                if shared is None:
+                        d = (va.Point - vb.Point).Length
+                        if d < min_d:
+                            min_d = d
+                            best_va = va.Point
+                            best_vb = vb.Point
+                if best_va is None or min_d > 100:
                     continue
+                shared = (best_va + best_vb) * 0.5
+                end_a = (ea.Vertexes[-1].Point - best_va).Length < (ea.Vertexes[0].Point - best_va).Length
+                start_a = not end_a
+                end_b = (eb.Vertexes[-1].Point - best_vb).Length < (eb.Vertexes[0].Point - best_vb).Length
+                start_b = not end_b
+            else:
                 va_s, va_e = ea.Vertexes[0].Point, ea.Vertexes[-1].Point
-                end_a = (va_e - shared).Length < 0.01
-                start_a = (va_s - shared).Length < 0.01
+                end_a = (va_e - shared).Length < 0.5
+                start_a = (va_s - shared).Length < 0.5
                 vb_s, vb_e = eb.Vertexes[0].Point, eb.Vertexes[-1].Point
-                end_b = (vb_e - shared).Length < 0.01
-                start_b = (vb_s - shared).Length < 0.01
+                end_b = (vb_e - shared).Length < 0.5
+                start_b = (vb_s - shared).Length < 0.5
+            dir_a_into_b = self._overlap_dir_to_neighbor(ea, eb, shared)
+            dir_b_into_a = self._overlap_dir_to_neighbor(eb, ea, shared)
 
-                # Direction from corner into each profile's interior
-                dir_a_into_b = self._overlap_dir_to_neighbor(ea, eb, shared)
-                dir_b_into_a = self._overlap_dir_to_neighbor(eb, ea, shared)
+            # At each corner, the profile whose edge ENDS at the corner "flows into"
+            # it (tail/尾), and the profile whose edge STARTS at the corner flows
+            # away from it (head/首). For 首尾呼应 around closed loops:
+            #   - mode 2 (A压B): A=tail=end cuts (-), B=head=start extends (+)
+            #   - mode 3 (B压A): B=tail=end cuts (-), A=head=start extends (+)
+            if end_a and start_b:
+                a_is_tail = True
+            elif start_a and end_b:
+                a_is_tail = False
+            else:
+                a_is_tail = True
 
-                # At each corner, the profile whose edge ENDS at the corner "flows into"
-                # it (tail/尾), and the profile whose edge STARTS at the corner flows
-                # away from it (head/首). For 首尾呼应 around closed loops:
-                #   - mode 2 (A压B): A=tail=end cuts (-), B=head=start extends (+)
-                #   - mode 3 (B压A): B=tail=end cuts (-), A=head=start extends (+)
-                if end_a and start_b:
-                    a_is_tail = True
-                elif start_a and end_b:
-                    a_is_tail = False
+            a_prefix = "B" if end_a else "A"
+            b_prefix = "B" if end_b else "A"
+
+            gap_val = self._get_gap()
+
+            if mode == 2:
+                if a_is_tail:
+                    self._store_overlap_end(obja, a_prefix, -1, dir_a_into_b, gap_val)
+                    self._store_overlap_end(objb, b_prefix, +1, dir_b_into_a, gap_val)
                 else:
-                    # Ambiguous (both ends or both starts at corner) → fall back to i<j
-                    a_is_tail = True
-
-                # Determine which Overlap prefix to use for each profile
-                a_prefix = "B" if end_a else "A"  # OffsetB ↔ OverlapB, OffsetA ↔ OverlapA
-                b_prefix = "B" if end_b else "A"
-
-                gap_val = self._get_gap()
-
-                if mode == 2:  # A压B: tail(A) cuts -, head(B) extends +
-                    if a_is_tail:
-                        # a (tail=A) cuts -, referencing B's dim; b (head=B) extends +, referencing A's dim
-                        self._store_overlap_end(obja, a_prefix, -1, dir_a_into_b, gap_val)
-                        self._store_overlap_end(objb, b_prefix, +1, dir_b_into_a, gap_val)
-                    else:
-                        # b (tail=A) cuts -, referencing A's dim; a (head=B) extends +, referencing B's dim
-                        self._store_overlap_end(objb, b_prefix, -1, dir_b_into_a, gap_val)
-                        self._store_overlap_end(obja, a_prefix, +1, dir_a_into_b, gap_val)
-                else:  # mode == 3, B压A: tail(B) cuts -, head(A) extends +
-                    if a_is_tail:
-                        # b (tail=B) cuts -, referencing A's dim; a (head=A) extends +, referencing B's dim
-                        self._store_overlap_end(objb, b_prefix, -1, dir_b_into_a, gap_val)
-                        self._store_overlap_end(obja, a_prefix, +1, dir_a_into_b, gap_val)
-                    else:
-                        # a (tail=B) cuts -, referencing B's dim; b (head=A) extends +, referencing A's dim
-                        self._store_overlap_end(obja, a_prefix, -1, dir_a_into_b, gap_val)
-                        self._store_overlap_end(objb, b_prefix, +1, dir_b_into_a, gap_val)
+                    self._store_overlap_end(objb, b_prefix, -1, dir_b_into_a, gap_val)
+                    self._store_overlap_end(obja, a_prefix, +1, dir_a_into_b, gap_val)
+            else:
+                if a_is_tail:
+                    self._store_overlap_end(objb, b_prefix, -1, dir_b_into_a, gap_val)
+                    self._store_overlap_end(obja, a_prefix, +1, dir_a_into_b, gap_val)
+                else:
+                    self._store_overlap_end(obja, a_prefix, -1, dir_a_into_b, gap_val)
+                    self._store_overlap_end(objb, b_prefix, +1, dir_b_into_a, gap_val)
 
         # Force recalculation to apply offsets immediately
         for obj, sel in profiles:

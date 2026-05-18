@@ -308,6 +308,11 @@ class HoleFeatureTaskPanel:
                     label = base_obj.Label
                     name = label.split("_Profile_")[0] if "_Profile_" in label else label
                 cut_obj.Label = f"{name}_Cut"
+                try:
+                    cut_obj.ViewObject.ShapeColor = base_obj.ViewObject.ShapeColor
+                    cut_obj.ViewObject.Transparency = base_obj.ViewObject.Transparency
+                except Exception:
+                    pass
                 # self.obj.CutResult = cut_obj  # removed: creates cyclic dependency DAG error
                 base_obj.ViewObject.Visibility = False
                 self.obj.ViewObject.Visibility = False

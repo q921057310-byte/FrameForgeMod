@@ -1537,7 +1537,10 @@ class ViewProviderProfile:
 
         sph_d = profile_point_size() * profile_sphere_scale()
         lw = profile_line_width()
-        font_size = int(1.4 * max(self.Object.Width.Value, self.Object.Height.Value))
+        try:
+            font_size = int(1.4 * max(self.Object.Width.Value, self.Object.Height.Value))
+        except Exception:
+            font_size = 14
 
         # Point 1
         if profile_show_endpoints():
@@ -1612,11 +1615,8 @@ class ViewProviderProfile:
 
     def attach(self, vobj):
         self.ViewObject = vobj
-        self.Object = vobj.Object
+        self.Object = vobj
         self.ObjectName = vobj.Object.Name
-
-        from freecad.frameforgemod.preferences import get_profile_color
-        vobj.ShapeColor = get_profile_color()
 
         self._ensureHelpers()
 
@@ -1787,7 +1787,7 @@ class ViewProviderProfile:
 
     def claimChildren(self):
         children = []
-        if self.Object.CustomProfile:
+        if getattr(self.Object, "CustomProfile", None):
             children.append(self.Object.CustomProfile)
         return children
 

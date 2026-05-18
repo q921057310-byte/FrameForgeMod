@@ -756,8 +756,8 @@ class ViewProviderWhistleConnector:
                     ref_face = fp.EndFace[0]
                 if ref_face:
                     vp = ref_face.ViewObject
-                    self.ViewObject.ShapeColor = vp.ShapeColor
-                    self.ViewObject.Transparency = vp.Transparency
+                    fp.ViewObject.ShapeColor = vp.ShapeColor
+                    fp.ViewObject.Transparency = vp.Transparency
             except Exception:
                 pass
         return

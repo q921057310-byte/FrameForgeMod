@@ -54,13 +54,13 @@ class WhistleConnectorTaskPanel:
         layout.addLayout(top_bar)
 
         # Status labels (auto-updated by selection observer)
-        self.end_label = QtWidgets.QLabel("等待选择端面...")
-        self.drill_label = QtWidgets.QLabel("等待选择钻孔面...")
+        self.end_label = QtWidgets.QLabel("等待选择截面...")
+        self.drill_label = QtWidgets.QLabel("等待选择侧面...")
 
         info = QtWidgets.QLabel(
             "<b>" + "按顺序点击面：" + "</b><br>"
-            "1. " + "1. 点击槽面（侧面）" + "<br>"
-            "2. " + "2. 点击端面（截面）")
+            "1. " + "点击截面（端面）" + "<br>"
+            "2. " + "点击侧面（槽面）")
         info.setWordWrap(True)
 
         layout.addWidget(info)
@@ -130,18 +130,18 @@ class WhistleConnectorTaskPanel:
         label = f"{sel_obj.Label} ({sub})"
         if self.obj.EndFace is None:
             self.obj.EndFace = (sel_obj, (sub,))
-            self.end_label.setText("端面: " + label)
+            self.end_label.setText("截面: " + label)
             App.Console.PrintMessage(f"Whistle: EndFace = {label}\n")
         elif self.obj.DrillFace is None:
             self.obj.DrillFace = (sel_obj, (sub,))
-            self.drill_label.setText("钻孔面: " + label)
+            self.drill_label.setText("侧面: " + label)
             App.Console.PrintMessage(f"Whistle: DrillFace = {label}, applying...\n")
             self.apply()
 
     # ── Selection observer ──────────────────────────────────
 
     def open(self):
-        App.Console.PrintMessage("Whistle Connector: click GROOVE FACE first, then END FACE\n")
+        App.Console.PrintMessage("Whistle Connector: click END FACE first, then GROOVE FACE\n")
         self._obs = _SelObserver(self)
         Gui.Selection.addObserver(self._obs)
         App.ActiveDocument.openTransaction("Whistle Connector")
@@ -168,8 +168,8 @@ class WhistleConnectorTaskPanel:
         self._do_cut()
         self.obj.EndFace = None
         self.obj.DrillFace = None
-        self.end_label.setText("等待选择端面...")
-        self.drill_label.setText("等待选择钻孔面...")
+        self.end_label.setText("等待选择截面...")
+        self.drill_label.setText("等待选择侧面...")
         App.ActiveDocument.commitTransaction()
         # self.obj.recompute()  # skip: doc.recompute() below handles it
         App.ActiveDocument.recompute()
@@ -182,106 +182,47 @@ class WhistleConnectorTaskPanel:
         App.ActiveDocument.openTransaction("Continue editing")
         App.Console.PrintMessage(translate("frameforgemod", "Ready.\n"))
 
+    def _do_cut(self):
+        """Create Boolean cut from profile using this connector."""
+        drill = self.obj.DrillFace
+        if not drill:
+            return
+        profile = drill[0] if isinstance(drill, (list, tuple)) else None
+        if profile is None:
+            return
+        try:
+            self.obj.recompute()
+            from BOPTools import BOPFeatures
+            bp = BOPFeatures.BOPFeatures(App.activeDocument())
+            cut_obj = bp.make_cut([profile.Name, self.obj.Name])
+            if cut_obj:
+                n = getattr(profile, "SizeName", None)
+                if not n:
+                    lb = profile.Label
+                    n = lb.split("_Profile_")[0] if "_Profile_" in lb else lb
+                cut_obj.Label = f"{n}_Cut"
+                try:
+                    cut_obj.ViewObject.ShapeColor = profile.ViewObject.ShapeColor
+                    cut_obj.ViewObject.Transparency = profile.ViewObject.Transparency
+                except Exception:
+                    pass
+                profile.ViewObject.Visibility = False
+                self.obj.ViewObject.Visibility = False
+                self._cut_obj = cut_obj
+        except Exception:
+            pass
+
     def accept(self):
         if self._obs:
             Gui.Selection.removeObserver(self._obs)
+            self._obs = None
         App.ActiveDocument.commitTransaction()
         App.ActiveDocument.recompute()
-        if self._newly_created:
-            self._do_cut()
-        Gui.ActiveDocument.resetEdit()
-        return True
-
-    def _do_cut(self):
-        base = self.obj.DrillFace[0] if self.obj.DrillFace else None
-        if base is None:
-            return
         try:
-            from BOPTools import BOPFeatures
-            bp = BOPFeatures.BOPFeatures(App.activeDocument())
-            cut_obj = bp.make_cut([base.Name, self.obj.Name])
-            if cut_obj:
-                name = getattr(base, "SizeName", None)
-                if not name:
-                    label = base.Label
-                    name = label.split("_Profile_")[0] if "_Profile_" in label else label
-                cut_obj.Label = f"{name}_Cut"
-                # CutResult removed to avoid DAG cycle
-                # self.obj.CutResult = cut_obj
-                base.ViewObject.Visibility = False
-                self.obj.ViewObject.Visibility = False
-                App.ActiveDocument.recompute()
-                Gui.updateGui()
-        except Exception as e:
-            App.Console.PrintWarning(f"Connector: cut failed: {e}\n")
-
-
-# ─────────────────────────────────────────────────────
-# WhistleConnectorCommand
-# ─────────────────────────────────────────────────────
-
-
-class WhistleConnectorCommand:
-    def GetResources(self):
-        return {
-            "Pixmap": os.path.join(ICONPATH, "whistle-connector.svg"),
-            "MenuText": "笛型连接件",
-            "Accel": "M, W",
-            "ToolTip": translate(
-                "frameforgemod",
-                "Click the groove face, then the end face. Hole is drilled at the groove center.",
-            ),
-        }
-
-    def IsActive(self):
-        return bool(App.ActiveDocument)
-
-    def Activated(self):
-        App.ActiveDocument.openTransaction("Make Whistle Connector")
-        doc = App.ActiveDocument
-        obj = doc.addObject("Part::FeaturePython", "WhistleConnector")
-        WhistleConnector(obj)
-        ViewProviderWhistleConnector(obj.ViewObject)
-
-        # Assign pre-selected faces if available
-        sel = Gui.Selection.getSelectionEx()
-        for sx in sel:
-            for sub in sx.SubElementNames:
-                if not sub.startswith("Face"):
-                    continue
-                f = sx.Object.getSubObject(sub)
-                if not isinstance(f, Part.Face):
-                    continue
-                is_end = False
-                try:
-                    sh = sx.Object.Shape
-                    if not sh.isNull() and sh.Faces:
-                        max_a = max(ff.Area for ff in sh.Faces)
-                        is_end = f.Area < max_a * 0.25
-                except Exception:
-                    pass
-                if is_end:
-                    if obj.EndFace is None:
-                        obj.EndFace = (sx.Object, (sub,))
-                else:
-                    if obj.DrillFace is None:
-                        obj.DrillFace = (sx.Object, (sub,))
-
-        # Add to parent group
-        if sel:
-            try:
-                p = sel[0].Object
-                if hasattr(p, "Parents") and p.Parents:
-                    p.Parents[-1][0].addObject(obj)
-            except Exception:
-                pass
-
-        App.ActiveDocument.commitTransaction()
-        panel = WhistleConnectorTaskPanel(obj, newly_created=True)
-        Gui.Control.showDialog(panel)
-
-
-Gui.addCommand("frameforgemod_WhistleConnector", WhistleConnectorCommand())
+            Gui.updateGui()
+        except Exception:
+            pass
+        return True
 
 
 class TJointConnectorTaskPanel:
@@ -431,6 +372,7 @@ class TJointConnectorTaskPanel:
         if base is None:
             return
         try:
+            self.obj.recompute()
             from BOPTools import BOPFeatures
             bp = BOPFeatures.BOPFeatures(App.activeDocument())
             cut_obj = bp.make_cut([base.Name, self.obj.Name])
@@ -440,6 +382,11 @@ class TJointConnectorTaskPanel:
                     label = base.Label
                     name = label.split("_Profile_")[0] if "_Profile_" in label else label
                 cut_obj.Label = f"{name}_Cut"
+                try:
+                    cut_obj.ViewObject.ShapeColor = base.ViewObject.ShapeColor
+                    cut_obj.ViewObject.Transparency = base.ViewObject.Transparency
+                except Exception:
+                    pass
                 # CutResult removed to avoid DAG cycle
                 # self.obj.CutResult = cut_obj
                 base.ViewObject.Visibility = False
@@ -594,6 +541,61 @@ class TJointConnectorTaskPanel:
                 f"T-Joint: no match for {dia:.1f}mm, manual adjust required\n")
 
 
+class WhistleConnectorCommand:
+    def GetResources(self):
+        return {
+            "Pixmap": os.path.join(ICONPATH, "whistle-connector.svg"),
+            "MenuText": "笛型连接件",
+            "Accel": "M, W",
+            "ToolTip": "点击槽面，然后点击端面。孔将在槽中心钻孔。",
+        }
+
+    def IsActive(self):
+        return bool(App.ActiveDocument)
+
+    def Activated(self):
+        App.ActiveDocument.openTransaction("Make Whistle Connector")
+        doc = App.ActiveDocument
+        obj = doc.addObject("Part::FeaturePython", "WhistleConnector")
+        WhistleConnector(obj)
+        ViewProviderWhistleConnector(obj.ViewObject)
+
+        sel = Gui.Selection.getSelectionEx()
+        for sx in sel:
+            for sub in sx.SubElementNames:
+                if not sub.startswith("Face"):
+                    continue
+                f = sx.Object.getSubObject(sub)
+                if not isinstance(f, Part.Face):
+                    continue
+                is_end = False
+                try:
+                    sh = sx.Object.Shape
+                    if not sh.isNull() and sh.Faces:
+                        max_a = max(ff.Area for ff in sh.Faces)
+                        is_end = f.Area < max_a * 0.25
+                except Exception:
+                    pass
+                if is_end:
+                    if obj.EndFace is None:
+                        obj.EndFace = (sx.Object, (sub,))
+                else:
+                    if obj.DrillFace is None:
+                        obj.DrillFace = (sx.Object, (sub,))
+
+        if sel:
+            try:
+                p = sel[0].Object
+                if hasattr(p, "Parents") and p.Parents:
+                    p.Parents[-1][0].addObject(obj)
+            except Exception:
+                pass
+
+        App.ActiveDocument.commitTransaction()
+        panel = WhistleConnectorTaskPanel(obj, newly_created=True)
+        Gui.Control.showDialog(panel)
+
+
 class TJointConnectorCommand:
     def GetResources(self):
         return {
@@ -647,4 +649,6 @@ class ConnectorToolGroup:
         }
 
 
+Gui.addCommand("frameforgemod_WhistleConnector", WhistleConnectorCommand())
+Gui.addCommand("frameforgemod_TJointConnector", TJointConnectorCommand())
 Gui.addCommand("frameforgemod_ConnectorGroup", ConnectorToolGroup())

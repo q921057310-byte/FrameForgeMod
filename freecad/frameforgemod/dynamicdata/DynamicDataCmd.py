@@ -216,7 +216,7 @@ class DynamicData2BaseCommandClass:
             obj.setGroupOfProperty(prop,"test")
             obj.setGroupOfProperty(prop,oldGroup)
             isSo = True
-        except:
+        except Exception:
             isSo = False
         return isSo
 
@@ -230,7 +230,7 @@ class DynamicData2BaseCommandClass:
         try:
             FreeCAD.Units.parseQuantity(name)
             return True
-        except:
+        except (ValueError, TypeError):
             return False
 
     def isValidName(self, obj, name):
@@ -302,21 +302,31 @@ class DynamicData2SettingsCommandClass(DynamicData2BaseCommandClass):
             super(DynamicData2SettingsCommandClass.DynamicData2SettingsDlg, self).__init__(Gui.getMainWindow())
             self.setAttribute(QtCore.Qt.WA_DeleteOnClose, True)
             self.setAttribute(QtCore.Qt.WA_WindowPropagation, True)
-            self.form = Gui.PySideUic.loadUi(uiPath + "/dynamicdataprefs.ui")
-            # --- 汉化代码开始 ---
+            self.form = QtGui.QWidget()
+            form_lay = QtGui.QVBoxLayout(self.form)
+            self.form.KeepToolbar = QtGui.QCheckBox("保持工具栏激活")
+            self.form.CondensedToolbar = QtGui.QCheckBox("紧凑型工具栏")
+            self.form.SupportViewObjectProperties = QtGui.QCheckBox("支持视图对象属性")
+            self.form.AddToActiveContainer = QtGui.QCheckBox("创建时添加到活动容器")
+            self.form.CheckForUpdates = QtGui.QCheckBox("检查更新")
+            self.form.AddToFreeCADPreferences = QtGui.QCheckBox("添加到 FreeCAD 首选项 (修改需重启)")
+            mru_row = QtGui.QHBoxLayout()
+            mru_label = QtGui.QLabel("最近使用类型列表大小:")
+            self.form.mruLength = QtGui.QSpinBox()
+            self.form.mruLength.setRange(1, 100)
+            mru_row.addWidget(mru_label)
+            mru_row.addWidget(self.form.mruLength)
+            mru_row.addStretch()
+            form_lay.addWidget(self.form.KeepToolbar)
+            form_lay.addWidget(self.form.CondensedToolbar)
+            form_lay.addWidget(self.form.SupportViewObjectProperties)
+            form_lay.addWidget(self.form.AddToActiveContainer)
+            form_lay.addWidget(self.form.CheckForUpdates)
+            form_lay.addWidget(self.form.AddToFreeCADPreferences)
+            form_lay.addLayout(mru_row)
+            form_lay.addStretch()
             self.setWindowTitle("DynamicData2 设置 v" + __version__)
-            self.form.KeepToolbar.setText("保持工具栏激活")
-            self.form.CondensedToolbar.setText("紧凑型工具栏")
-            self.form.SupportViewObjectProperties.setText("支持视图对象属性")
-            self.form.AddToActiveContainer.setText("创建时添加到活动容器")
-            self.form.CheckForUpdates.setText("检查更新")
-            self.form.AddToFreeCADPreferences.setText("添加到 FreeCAD 首选项 (修改需重启)")
-            try:
-                self.form.label.setText("最近使用类型列表大小:")
-            except:
-                pass
-            # --- 汉化代码结束 ---
-            self.setWindowIcon(QtGui.QIcon("Resources/icons/Settings.svg"))
+            self.setWindowIcon(QtGui.QIcon(os.path.join(iconPath, "Settings.svg")))
             lay = QtGui.QVBoxLayout(self)
             lay.addWidget(self.form)
             self.setLayout(lay)
@@ -612,13 +622,13 @@ you can use Undo to revert all your changes to the selected object.
             if row == 0:
                 try:
                     label = self.configuration["enums"][col]
-                except:
+                except (IndexError, KeyError):
                     label = f"Enum{col}"
                     self.configuration["enums"].append(f"Enum{col}")
             elif col == 0:
                 try:
                     label = self.configuration["variables"][row-1]
-                except:
+                except (IndexError, KeyError):
                     self.configuration["variables"].append(f"Variable{row}")
                     label = f"Variable{row}"
             lineEdit.setText(label)
@@ -743,7 +753,7 @@ you can use Undo to revert all your changes to the selected object.
                 val = 0
                 try:
                     val = float(lineEdit.text())
-                except:
+                except (ValueError, TypeError):
                     if lineEdit.text():
                         FreeCAD.Console.PrintWarning(f"Couldn't convert to float: {lineEdit.text()} row,col = {row},{col}\n")
                     else:
@@ -751,7 +761,7 @@ you can use Undo to revert all your changes to the selected object.
                         firstCell = self.getLineEditFromConfiguration(f"{row+1}_{1}")
                         try:
                             val = float(firstCell.text())
-                        except:
+                        except (ValueError, TypeError):
                             val = 0
                 ret.append(val)
             return ret
@@ -763,7 +773,7 @@ you can use Undo to revert all your changes to the selected object.
             if hasattr(dd,name):
                 try:
                     dd.removeProperty(name)
-                except:
+                except Exception:
                     FreeCAD.Console.PrintWarning(f"Unable to remove property: {name}\n")
             if not hasattr(dd,name):
                 dd.addProperty("App::PropertyEnumeration",name,name,"Configuration enumeration")
@@ -773,7 +783,7 @@ you can use Undo to revert all your changes to the selected object.
                     try:
                         dd.removeProperty(f"{var}List")
                         FreeCAD.Console.PrintMessage(f"Removed property {var}List\n")
-                    except:
+                    except Exception:
                         FreeCAD.Console.PrintWarning(f"Unable to remove property: {var}List\n")
                 if not hasattr(dd,f"{var}List"):
                     dd.addProperty("App::PropertyFloatList",f"{var}List",f"{name}Lists",f"List property for {var}")
@@ -783,7 +793,7 @@ you can use Undo to revert all your changes to the selected object.
                     try:
                         dd.removeProperty(var)
                         FreeCAD.Console.PrintMessage(f"Removed property {var}\n")
-                    except:
+                    except Exception:
                         FreeCAD.Console.PrintWarning(f"Unable to remove property: {var}\n")
                 if not hasattr(dd,var):
                     dd.addProperty("App::PropertyFloat",var,name,"Property to link to")
@@ -1356,7 +1366,7 @@ class DynamicData2AddPropertyCommandClass(DynamicData2BaseCommandClass):
         cleaned = re.sub(r'(\w+)', r'"\1"', userstring)
         try:
             names = ast.literal_eval(cleaned)
-        except:
+        except (ValueError, SyntaxError):
             raise EvalError(f"cannot evaluate {userstring}")
         links = [self.getObjectByNameOrLabel(name[0]) if self.getObjectByNameOrLabel(name[0]) else None for name in names ]
         links2 = []
@@ -1373,7 +1383,7 @@ class DynamicData2AddPropertyCommandClass(DynamicData2BaseCommandClass):
         cleaned = re.sub(r'(\w+)', r'"\1"', userstring)
         try:
             names = ast.literal_eval(cleaned)
-        except:
+        except (ValueError, SyntaxError):
             raise EvalError(f"cannot evaluate {userstring}")
         links = [self.getObjectByNameOrLabel(name) if self.getObjectByNameOrLabel(name) else None for name in names]
         return links
@@ -1423,15 +1433,15 @@ class DynamicData2AddPropertyCommandClass(DynamicData2BaseCommandClass):
         try:
             retval = self.obj.evalExpression(expr)
             return retval
-        except:
+        except Exception:
             try:
                 retval = ast.literal_eval(expr)
                 return retval
-            except:
+            except (ValueError, SyntaxError):
                 try:
                     retval = ast.literal_eval(expr.replace(";",","))
                     return retval
-                except:
+                except (ValueError, SyntaxError):
                     raise EvalError(f"Cannot evaluate {expr}\n")
 
     def checkAddAnother(self,dlg):
@@ -1710,7 +1720,7 @@ Select new type for {prop}:<br/> </span>
         self.obj.addProperty(newType, prop, group, docu)
         try:
             setattr(self.obj, prop, val)
-        except:
+        except Exception:
             FreeCAD.Console.PrintError(f"""
 DynamicData2: Unable to reset property value {val} for new property of type {newType}
 for property {prop} of {self.obj.Label}, using default value for properties of
@@ -2419,7 +2429,7 @@ Break expression binding for selected property of {self.obj1.Label}""")
             else:
                 try:
                     return getattr(self.obj1.ViewObject, self.Obj1PropName)
-                except:
+                except AttributeError:
                     return "No python counterpart"
 
         @property
@@ -2433,7 +2443,7 @@ Break expression binding for selected property of {self.obj1.Label}""")
             else:
                 try:
                     return getattr(self.obj2.ViewObject, self.Obj2PropName)
-                except:
+                except AttributeError:
                     return "No python counterpart"
 
         @property
@@ -2653,7 +2663,7 @@ Break expression binding for selected property of {self.obj1.Label}""")
                return None
             try:
                 self.obj1.addProperty(self.Obj2Type, propName, self.Obj2Group, self.Obj2Tip)
-            except:
+            except Exception:
                 FreeCAD.Console.PrintError(f"DynamicData2: Error adding {propName} to {self.obj1.Label}")
                 return False
             if self.hasExpr() and self.byExpressionCheckBox.isChecked():
@@ -2667,7 +2677,7 @@ Break expression binding for selected property of {self.obj1.Label}""")
                 try:
                     setattr(self.obj1, propName, self.Obj2Value)
                     return True
-                except:
+                except Exception:
                     FreeCAD.Console.PrintError(f"DynamicData2: Error setting {propName} to {self.Obj2Value}, but property was created.\n")
                     return False
 
@@ -2681,7 +2691,7 @@ Break expression binding for selected property of {self.obj1.Label}""")
 
             try:
                 self.obj2.addProperty(self.Obj1Type, propName, self.Obj1Group, self.Obj1Tip)
-            except:
+            except Exception:
                 FreeCAD.Console.PrintError(f"DynamicData2: Error adding {propName} to {self.obj2.Label}")
                 return False
             if self.hasExpr() and self.byExpressionCheckBox.isChecked():
@@ -2695,7 +2705,7 @@ Break expression binding for selected property of {self.obj1.Label}""")
                 try:
                     setattr(self.obj2, propName, self.Obj1Value)
                     return True
-                except:
+                except Exception:
                     FreeCAD.Console.PrintError(f"DynamicData2: Error setting {propName} to {self.Obj1Value}, but property was created.\n")
                     return False
 
@@ -2965,6 +2975,715 @@ class DynamicData2Commands:
 
 
 
+# ============================================================================
+#  Sliders — real-time slider panel + timeline + keyframes
+#  Supports: DynamicData2 object properties, Sketch constraints
+# ============================================================================
+
+# --- Data sources --------------------------------------------------------
+def _get_animatable_properties(obj):
+    primary = {"Length", "Width", "Height"}
+    props_primary = []
+    props_xyz = []
+    props_other = []
+    for p in obj.PropertiesList:
+        if p in ("Label", "Label2", "ExpressionEngine", "Visibility", "Group"):
+            continue
+        try:
+            attr = getattr(obj, p)
+        except Exception:
+            continue
+        if isinstance(attr, (int, float)):
+            entry = (p, obj.getTypeIdOfProperty(p))
+        elif isinstance(attr, App.Units.Quantity):
+            entry = (p, obj.getTypeIdOfProperty(p))
+        else:
+            continue
+        if p in primary:
+            props_primary.append(entry)
+        else:
+            props_other.append(entry)
+    if hasattr(obj, "Placement"):
+        props_xyz.append(("Placement.Base.x", "PropertyFloat"))
+        props_xyz.append(("Placement.Base.y", "PropertyFloat"))
+        props_xyz.append(("Placement.Base.z", "PropertyFloat"))
+        props_other.append(("Placement.Rotation.Angle", "PropertyAngle"))
+    return props_primary + props_xyz + props_other
+
+
+class _DD2Source:
+    def __init__(self, dd, plist):
+        self.obj = dd; self._items = plist
+        self._type_map = {n: t for n, t in plist}
+    @property
+    def label(self): return self.obj.Label
+    def items(self): return self._items
+    def get(self, name):
+        parts = name.split(".")
+        v = self.obj
+        for p in parts: v = getattr(v, p)
+        if hasattr(v, 'Value'):
+            v = v.Value
+        if "Angle" in self._type_map.get(name, "") and name.startswith("Placement.Rotation"):
+            import math
+            v = math.degrees(v)
+        return v
+    def set(self, name, val):
+        if "Angle" in self._type_map.get(name, "") and name.startswith("Placement.Rotation"):
+            import math
+            val = math.radians(val)
+        parts = name.split(".")
+        target = self.obj
+        for p in parts[:-1]: target = getattr(target, p)
+        setattr(target, parts[-1], val)
+    def recompute(self): FreeCAD.ActiveDocument.recompute()
+    def meta(self, name, ptype):
+        if "Angle" in ptype: return ("\u00b0", 1)
+        if "Integer" in ptype: return ("", 0)
+        if "Length" in ptype or "Distance" in ptype: return (" mm", 2)
+        if "Speed" in ptype: return (" mm/s", 2)
+        if "Force" in ptype: return (" N", 2)
+        if "Pressure" in ptype: return (" Pa", 2)
+        if "Volume" in ptype: return (" mm\u00b3", 2)
+        if "Area" in ptype: return (" mm\u00b2", 2)
+        return ("", 2)
+
+class _SketchSource:
+    SKIP_TYPES = {"Block","Fixed","PointOnObject","Coincident","Parallel","Perpendicular",
+        "Horizontal","Vertical","Tangent","Equal","Symmetric","SnellsLaw","InternalAlignment"}
+    def __init__(self, sketch):
+        self.obj = sketch
+        self._items = []
+        for i, c in enumerate(sketch.Constraints):
+            if c.Type in self.SKIP_TYPES: continue
+            if not hasattr(c, 'Value'): continue
+            nm = getattr(c, 'Name', None) or c.Type + str(i)
+            self._items.append((nm, c.Type, i))
+    @property
+    def label(self): return self.obj.Label
+    def items(self): return self._items
+    def get(self, name):
+        try:
+            for i, c in enumerate(self.obj.Constraints):
+                if (getattr(c,'Name',None) or c.Type+str(i)) == name:
+                    v = c.Value
+                    if c.Type == "Angle":
+                        v = __import__("math").degrees(v)
+                    return v
+        except (AttributeError, IndexError): pass
+        return 0
+    def set(self, name, val):
+        try:
+            for i, c in enumerate(self.obj.Constraints):
+                if (getattr(c,'Name',None) or c.Type+str(i)) == name:
+                    try:
+                        if c.Type == "Angle":
+                            val = __import__("math").radians(val)
+                        self.obj.setDatum(i, val)
+                    except (TypeError, RuntimeError): pass
+                    break
+        except (AttributeError, IndexError): pass
+    def recompute(self):
+        try: FreeCAD.ActiveDocument.recompute()
+        except Exception: pass
+    def meta(self, name, ptype):
+        if ptype == "Angle": return ("\u00b0", 1)
+        if ptype in ("Distance","DistanceX","DistanceY"): return (" mm", 2)
+        if ptype == "Radius": return (" R", 2)
+        if ptype == "Diameter": return (" \u00d8", 2)
+        return ("", 2)
+
+
+class _MultiSource:
+    """Aggregates multiple DD/Sketch sources into one, prefixing names."""
+    def __init__(self, sources):
+        self.sources = dict(sources)  # label -> source
+        self._items = []
+        self._map = {}  # full_name -> (label, inner_name)
+        for pref, s in self.sources.items():
+            for nm, pt, *rest in s.items():
+                fn = pref + "." + nm
+                self._items.append((fn, pt, pref, nm))
+                self._map[fn] = (pref, nm)
+    @property
+    def label(self): return "+".join(self.sources)
+    def items(self): return self._items
+    def get(self, name):
+        pref, inner = self._map.get(name, (None, name))
+        return self.sources[pref].get(inner) if pref else self.sources[list(self.sources)[0]].get(name)
+    def set(self, name, val):
+        pref, inner = self._map.get(name, (None, name))
+        (self.sources[pref] if pref else self.sources[list(self.sources)[0]]).set(inner, val)
+    def meta(self, name, ptype):
+        pref, inner = self._map.get(name, (None, name))
+        return (self.sources[pref] if pref else self.sources[list(self.sources)[0]]).meta(inner, ptype)
+    def recompute(self): FreeCAD.ActiveDocument.recompute()
+
+class DynamicData2SlidersCommandClass:
+    """Sliders for any object properties or Sketch constraints."""
+
+    def GetResources(self):
+        return {'Pixmap': os.path.join(iconPath,'Sliders.svg'),
+                'MenuText': 'Sliders', 'ToolTip': 'Sliders with timeline & keyframes'}
+
+    def IsActive(self):
+        return FreeCAD.ActiveDocument is not None
+
+    def Activated(self):
+        from PySide import QtCore, QtGui
+
+        sel = FreeCADGui.Selection.getSelection()
+        subs = []
+
+        for o in sel:
+            if hasattr(o, 'Constraints') and hasattr(o, 'setDatum'):
+                s = _SketchSource(o)
+                if s.items(): subs.append((o.Label, s))
+                continue
+            pl = _get_animatable_properties(o)
+            if pl:
+                subs.append((o.Label, _DD2Source(o, pl)))
+        if not subs:
+            for o in FreeCAD.ActiveDocument.Objects:
+                pl = _get_animatable_properties(o)
+                if pl: subs.append((o.Label, _DD2Source(o, pl))); break
+        if not subs:
+            for o in FreeCAD.ActiveDocument.Objects:
+                if hasattr(o, 'Constraints') and hasattr(o, 'setDatum'):
+                    s = _SketchSource(o)
+                    if s.items(): subs.append((o.Label, s)); break
+        if not subs:
+            QtGui.QMessageBox.warning(None,"Sliders","Select object(s) with numeric properties or a Sketch with dimensions.")
+            return
+        src = _MultiSource(subs) if len(subs) > 1 else subs[0][1]
+
+        # ------------------------------------------------------------------
+        #  Timeline bar widget (painted)
+        # ------------------------------------------------------------------
+        class TimelineBar(QtGui.QWidget):
+            def __init__(self, panel):
+                super().__init__()
+                self.panel = panel
+                self.setFixedHeight(30)
+                self.setMinimumWidth(200)
+                self._drag = False
+
+            def _f2x(self, f):
+                return int(f / max(self.panel.maxFrame,1) * (self.width()-2)) + 1
+
+            def paintEvent(self, event):
+                p = QtGui.QPainter(self)
+                w, h = self.width(), self.height()
+                p.fillRect(0, 0, w, h, QtGui.QColor(45,45,45))
+                # frame ticks
+                step = max(1, self.panel.maxFrame // 20)
+                p.setPen(QtGui.QColor(80,80,80))
+                for f in range(0, self.panel.maxFrame+1, step):
+                    x = self._f2x(f)
+                    p.drawLine(x, h-12, x, h-2)
+                # keyframe diamonds
+                p.setPen(QtGui.QColor(255,200,50))
+                p.setBrush(QtGui.QColor(255,200,50))
+                for f in self.panel.keyframes:
+                    x = self._f2x(f)
+                    pts = [QtCore.QPoint(x, h-4),QtCore.QPoint(x+4, h-10),
+                           QtCore.QPoint(x, h-16),QtCore.QPoint(x-4, h-10)]
+                    p.drawPolygon(pts)
+                # playhead
+                x = self._f2x(self.panel.currentFrame)
+                p.setPen(QtGui.QPen(QtGui.QColor(255,80,80),2))
+                p.drawLine(x, 2, x, h-2)
+                p.drawText(x-15, 2, 30, 12, QtCore.Qt.AlignCenter, str(self.panel.currentFrame))
+                p.end()
+
+            def mousePressEvent(self, e):
+                if e.button() == QtCore.Qt.LeftButton:
+                    self._drag = True
+                    self._move(e.x())
+            def mouseMoveEvent(self, e):
+                if self._drag: self._move(e.x())
+            def mouseReleaseEvent(self, e):
+                self._drag = False
+            def _move(self, mx):
+                f = int(mx / self.width() * self.panel.maxFrame)
+                f = max(0, min(self.panel.maxFrame, f))
+                self.panel.currentFrame = f
+                self.panel._interpolate()
+                self.panel._sync_display()
+                self.update()
+
+        # ------------------------------------------------------------------
+        #  Slider panel
+        # ------------------------------------------------------------------
+        class SliderPanel(QtGui.QWidget):
+            def __init__(self):
+                super().__init__(None)
+                self.src = src
+                self.slots = {}
+                self.keyframes = {}
+                self.currentFrame = 0
+                self.maxFrame = 100
+                self.fps = 24
+                self._anim = None
+                self._timer = QtCore.QTimer(self)
+                self._timer.timeout.connect(self._tick)
+                self._busy = False
+                self._restore = {}
+                self._collapsed = False
+                self._expanded_h = 0
+                self._force_close = False
+                self._pg = FreeCAD.ParamGet("User parameter:BaseApp/Preferences/Mod/DynamicData2/SlidersPanel")
+                self._plist = list(self.src.items())
+                self._build(self._plist)
+                self._open_restore = {pn: self.src.get(pn) for pn in self.slots}
+                self._restore_state()
+                for pn, sl in self.slots.items():
+                    cb = sl.get("cb")
+                    if cb: cb.setChecked(self._pg.GetBool("perm_"+pn, False))
+                self._restore_geo()
+            def _build(self, plist):
+                self.setWindowTitle("Sliders — " + self.src.label)
+                self.setWindowFlags(QtCore.Qt.Window | QtCore.Qt.WindowStaysOnTopHint)
+                self.setMinimumWidth(380)
+                lo = QtGui.QVBoxLayout(); lo.setSpacing(4); lo.setContentsMargins(8,8,8,8)
+                # top bar (always visible)
+                tr = QtGui.QHBoxLayout()
+                self._sel = QtGui.QComboBox()
+                for pn, pt, *rest in plist: self._sel.addItem(pn, pn)
+                self._sel.currentIndexChanged.connect(lambda i: (self._sel2.blockSignals(True), self._sel2.setCurrentIndex(i), self._sel2.blockSignals(False), self._update_range()))
+                tr.addWidget(self._sel)
+                self._cplay = QtGui.QPushButton("Play"); self._cplay.setCheckable(True)
+                self._cplay.setFixedWidth(50)
+                self._cplay.toggled.connect(self._cplay_toggled)
+                self._cplay.setStyleSheet("QPushButton:checked{background:#4caf50;color:#fff;font-weight:bold}")
+                tr.addWidget(self._cplay)
+                tr.addWidget(QtGui.QLabel("Spd"))
+                self._stp = QtGui.QDoubleSpinBox()
+                self._stp.setRange(0.01,99999); self._stp.setValue(0.3); self._stp.setFixedWidth(60)
+                self._stp.valueChanged.connect(lambda v: (
+                    self._stp2.blockSignals(True), self._stp2.setValue(v), self._stp2.blockSignals(False),
+                    setattr(self,'step',v),
+                    self._anim.update({'step':v}) if self._anim else None,
+                    self._timer.setInterval(int(1000/(self.fps*max(v,0.1)))) if self._timer.isActive() else None
+                ) and None)
+                tr.addWidget(self._stp)
+                self._fold = QtGui.QPushButton("▾"); self._fold.setFixedWidth(24)
+                self._fold.setToolTip("Click to collapse  |  Right-click to close")
+                self._fold.clicked.connect(self._toggle_collapse)
+                self._fold.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
+                self._fold.customContextMenuRequested.connect(lambda _: self.close())
+                tr.addWidget(self._fold)
+                lo.addLayout(tr)
+                # content (collapsible)
+                self._content = QtGui.QWidget()
+                cx = QtGui.QVBoxLayout(self._content); cx.setSpacing(4); cx.setContentsMargins(0,0,0,0)
+                if not plist:
+                    cx.addWidget(QtGui.QLabel("No numeric properties or constraints"))
+                else:
+                    for pn, pt, *rest in plist:
+                        self._add_row(cx, pn, pt)
+                af = QtGui.QGroupBox("Animation")
+                al = QtGui.QVBoxLayout(); al.setSpacing(3)
+                mr = QtGui.QHBoxLayout()
+                mr.addWidget(QtGui.QLabel("Mode:"))
+                self._mode = QtGui.QComboBox()
+                self._mode.addItems(["Timeline", "Bounce"])
+                self._mode.currentTextChanged.connect(self._mode_changed)
+                mr.addWidget(self._mode); mr.addStretch()
+                self._save = QtGui.QPushButton("Save"); self._save.clicked.connect(self._save_kf)
+                mr.addWidget(self._save)
+                self._load = QtGui.QPushButton("Load"); self._load.clicked.connect(self._load_kf)
+                mr.addWidget(self._load)
+                self._export = QtGui.QPushButton("Export"); self._export.clicked.connect(self._export_frames)
+                mr.addWidget(self._export)
+                al.addLayout(mr)
+                # timeline controls
+                self._tl_w = QtGui.QWidget()
+                tw = QtGui.QVBoxLayout(self._tl_w); tw.setContentsMargins(0,0,0,0)
+                self.tbar = TimelineBar(self)
+                tw.addWidget(self.tbar)
+                fr = QtGui.QHBoxLayout()
+                fr.addWidget(QtGui.QLabel("Frame:"))
+                self._frm = QtGui.QSpinBox(); self._frm.setRange(0,9999)
+                self._frm.valueChanged.connect(lambda v: self._set_frame(v))
+                fr.addWidget(self._frm)
+                fr.addWidget(QtGui.QLabel("/"))
+                self._maxf = QtGui.QSpinBox(); self._maxf.setRange(1,9999); self._maxf.setValue(100)
+                self._maxf.valueChanged.connect(lambda v: setattr(self,'maxFrame',v) or self._maxf_changed())
+                fr.addWidget(self._maxf)
+                fr.addWidget(QtGui.QLabel("FPS:"))
+                self._fps = QtGui.QSpinBox(); self._fps.setRange(1,120); self._fps.setValue(24)
+                self._fps.valueChanged.connect(lambda v: setattr(self,'fps',v) or (self._timer.setInterval(int(1000/(self.fps*max(self._stp.value(),0.1)))) if self._timer.isActive() else None))
+                fr.addWidget(self._fps); tw.addLayout(fr)
+                kr = QtGui.QHBoxLayout()
+                self._addk = QtGui.QPushButton("+ Key"); self._addk.clicked.connect(self._add_key)
+                kr.addWidget(self._addk)
+                self._delk = QtGui.QPushButton("- Key"); self._delk.clicked.connect(self._del_key)
+                kr.addWidget(self._delk)
+                self._clear = QtGui.QPushButton("Clear"); self._clear.clicked.connect(self._clear_kf)
+                kr.addWidget(self._clear); kr.addStretch()
+                self._play = QtGui.QPushButton("Play"); self._play.setCheckable(True)
+                self._play.toggled.connect(self._tog)
+                self._play.setStyleSheet("QPushButton:checked{background:#4caf50;color:#fff;font-weight:bold}")
+                kr.addWidget(self._play); tw.addLayout(kr)
+                al.addWidget(self._tl_w)
+                # bounce controls
+                self._bo_w = QtGui.QWidget()
+                bw = QtGui.QVBoxLayout(self._bo_w); bw.setContentsMargins(0,0,0,0)
+                r1 = QtGui.QHBoxLayout()
+                r1.addWidget(QtGui.QLabel("Param:"))
+                self._sel2 = QtGui.QComboBox()
+                for pn, pt, *rest in plist: self._sel2.addItem(pn, pn)
+                self._sel2.currentIndexChanged.connect(lambda i: (self._sel.blockSignals(True), self._sel.setCurrentIndex(i), self._sel.blockSignals(False), self._update_range()))
+                r1.addWidget(self._sel2); bw.addLayout(r1)
+                r2 = QtGui.QHBoxLayout()
+                r2.addWidget(QtGui.QLabel("Range:"))
+                self._lo = QtGui.QDoubleSpinBox(); self._lo.setRange(-99999,99999)
+                self._hi = QtGui.QDoubleSpinBox(); self._hi.setRange(-99999,99999)
+                self._lo.setValue(0); self._hi.setValue(360)
+                self._update_range()
+                r2.addWidget(self._lo); r2.addWidget(QtGui.QLabel("~")); r2.addWidget(self._hi)
+                bw.addLayout(r2)
+                r3 = QtGui.QHBoxLayout()
+                r3.addWidget(QtGui.QLabel("Spd"))
+                self._stp2 = QtGui.QDoubleSpinBox()
+                self._stp2.setRange(0.01,99999); self._stp2.setValue(0.3)
+                self._stp2.valueChanged.connect(lambda v: (
+                    self._stp.blockSignals(True), self._stp.setValue(v), self._stp.blockSignals(False),
+                    self._anim.update({'step':v}) if self._anim else None,
+                    self._timer.setInterval(int(1000/(self.fps*max(v,0.1)))) if self._timer.isActive() else None
+                ) and None)
+                r3.addWidget(self._stp2); r3.addStretch()
+                self._bplay = QtGui.QPushButton("Play"); self._bplay.setCheckable(True)
+                self._bplay.toggled.connect(self._btog)
+                self._bplay.setStyleSheet("QPushButton:checked{background:#4caf50;color:#fff;font-weight:bold}")
+                r3.addWidget(self._bplay); bw.addLayout(r3)
+                self._bo_w.setVisible(False)
+                al.addWidget(self._bo_w)
+                af.setLayout(al); cx.addWidget(af)
+                # status
+                bh = QtGui.QHBoxLayout()
+                self._status = QtGui.QLabel(""); bh.addWidget(self._status)
+                bh.addStretch()
+                cx.addLayout(bh)
+                sa = QtGui.QScrollArea()
+                sa.setWidgetResizable(True)
+                sa.setWidget(self._content)
+                lo.addWidget(sa)
+                self.setLayout(lo)
+            def _update_range(self):
+                pn = self._sel.currentData()
+                for name, ptype, *rest in self._plist:
+                    if name == pn:
+                        if "Angle" in ptype:
+                            self._lo.setRange(0, 360)
+                            self._hi.setRange(0, 360)
+                        else:
+                            self._lo.setRange(-99999, 99999)
+                            self._hi.setRange(-99999, 99999)
+                        break
+            def _add_row(self, lo, pn, pt):
+                v = self.src.get(pn)
+                sfx, dec = self.src.meta(pn, pt)
+                sp = QtGui.QDoubleSpinBox()
+                if "Angle" in pt:
+                    sp.setRange(0, 360)
+                else:
+                    sp.setRange(-99999, 99999)
+                sp.setValue(v)
+                sp.setSuffix(sfx); sp.setDecimals(dec)
+                s = QtGui.QSlider(QtCore.Qt.Horizontal)
+                if "Angle" in pt:
+                    scale = 10; half = 0
+                    s.setRange(0, 3600)
+                    s.setValue(int(v * scale))
+                    s.valueChanged.connect(lambda x, sp=sp, sc=scale: sp.setValue(x / sc))
+                    sp.valueChanged.connect(lambda x, pn=pn: self._ch(pn, x))
+                else:
+                    scale = 10; half = max(abs(v)*3, 100)*scale
+                    s.setRange(0, int(half*2))
+                    s.setValue(int(half + v*scale))
+                    s.valueChanged.connect(lambda x, sp=sp, sc=scale, hh=half: sp.setValue((x-hh)/sc))
+                    sp.valueChanged.connect(lambda x, pn=pn: self._ch(pn, x))
+                cb = QtGui.QCheckBox("Perm")
+                g = QtGui.QGroupBox(pn)
+                gl = QtGui.QVBoxLayout()
+                h = QtGui.QHBoxLayout(); h.addWidget(s, stretch=2); h.addWidget(sp, stretch=1); h.addWidget(cb)
+                gl.addLayout(h); g.setLayout(gl); lo.addWidget(g)
+                self.slots[pn] = {"s":s,"sp":sp,"scale":scale,"half":half,"cb":cb}
+            def _ch(self, pn, v):
+                if self._busy: return
+                self._busy = True
+                self.src.set(pn, v)
+                sl = self.slots[pn]
+                sv = int(sl["half"] + v*sl["scale"])
+                if sv < sl["s"].minimum() or sv > sl["s"].maximum():
+                    r = max(abs(sv)*2, 1000)
+                    sl["s"].setRange(min(0, -r), max(0, r))
+                sl["s"].blockSignals(True); sl["s"].setValue(sv); sl["s"].blockSignals(False)
+                sl["sp"].blockSignals(True); sl["sp"].setValue(v); sl["sp"].blockSignals(False)
+                self._busy = False
+                self._defer_recompute()
+            def _defer_recompute(self):
+                t = getattr(self, '_rt', None)
+                if not t:
+                    t = QtCore.QTimer(self); t.setSingleShot(True)
+                    t.timeout.connect(lambda: self.src.recompute())
+                    self._rt = t
+                t.start(50)
+            # ---- geometry ----
+            def _restore_geo(self):
+                x = self._pg.GetInt("geoX", -1)
+                y = self._pg.GetInt("geoY", 60)
+                w = self._pg.GetInt("geoW", 400)
+                h = self._pg.GetInt("geoH", 500)
+                on_screen = False
+                if x >= 0:
+                    from PySide import QtGui
+                    app = QtGui.QGuiApplication.instance()
+                    if app:
+                        for screen in app.screens():
+                            sg = screen.availableGeometry()
+                            if sg.x() <= x <= sg.right() - 100 and sg.y() <= y <= sg.bottom() - 30:
+                                on_screen = True
+                                break
+                if x < 0 or not on_screen:
+                    mw = FreeCADGui.getMainWindow()
+                    if mw:
+                        g = mw.geometry(); p = self.geometry()
+                        self.move(g.right() - p.width() - 40, g.top() + 60)
+                else:
+                    self.setGeometry(x, y, w, h)
+            # ---- close ----
+            def closeEvent(self, event):
+                if self._timer.isActive():
+                    r = QtGui.QMessageBox.question(self, "Animation Running",
+                        "Animation is still running.\nStop and close?",
+                        QtGui.QMessageBox.Yes | QtGui.QMessageBox.No)
+                    if r == QtGui.QMessageBox.No: event.ignore(); return
+                    self._timer.stop()
+                elif not self._force_close:
+                    r = QtGui.QMessageBox.question(self, "Close Sliders",
+                        "Close the Sliders panel?",
+                        QtGui.QMessageBox.Yes | QtGui.QMessageBox.No)
+                    if r == QtGui.QMessageBox.No: event.ignore(); return
+                self._restore_vals()
+                g = self.geometry()
+                self._pg.SetInt("geoX", g.x()); self._pg.SetInt("geoY", g.y())
+                self._pg.SetInt("geoW", g.width()); self._pg.SetInt("geoH", g.height())
+                self._save_state()
+                event.accept()
+            # ---- persist ----
+            def _restore_state(self):
+                mode = self._pg.GetString("mode", "Timeline")
+                idx = self._mode.findText(mode)
+                if idx >= 0: self._mode.setCurrentIndex(idx)
+                self.maxFrame = self._pg.GetInt("maxFrame", 100)
+                self.fps = self._pg.GetInt("fps", 24)
+                self._maxf.setValue(self.maxFrame)
+                self._fps.setValue(self.fps)
+                pn = self._pg.GetString("bounceParam", "")
+                for i in range(self._sel.count()):
+                    if self._sel.itemText(i) == pn: self._sel.setCurrentIndex(i); break
+                self._lo.setValue(self._pg.GetFloat("bounceLo", 0))
+                self._hi.setValue(self._pg.GetFloat("bounceHi", 360))
+                self._stp.setValue(self._pg.GetFloat("bounceStep", 0.3))
+            def _save_state(self):
+                self._pg.SetString("mode", self._mode.currentText())
+                self._pg.SetInt("maxFrame", self.maxFrame)
+                self._pg.SetInt("fps", self.fps)
+                self._pg.SetString("bounceParam", self._sel.currentText())
+                self._pg.SetFloat("bounceLo", self._lo.value())
+                self._pg.SetFloat("bounceHi", self._hi.value())
+                self._pg.SetFloat("bounceStep", self._stp.value())
+                for pn, sl in self.slots.items():
+                    self._pg.SetBool("perm_"+pn, sl.get("cb",QtGui.QCheckBox()).isChecked())
+            # ---- snapshot / restore ----
+            def _snapshot(self):
+                self._restore = {}
+                for pn in self.slots: self._restore[pn] = self.src.get(pn)
+            def _restore_vals(self):
+                src = self._restore if self._restore else self._open_restore
+                for pn, v in src.items():
+                    if pn in self.slots:
+                        if self.slots[pn].get("cb") and self.slots[pn]["cb"].isChecked(): continue
+                        try:
+                            self._busy = True
+                            self.src.set(pn, v)
+                            sl = self.slots[pn]
+                            sv = int(sl["half"] + v*sl["scale"])
+                            sl["s"].blockSignals(True); sl["s"].setValue(sv); sl["s"].blockSignals(False)
+                            sl["sp"].blockSignals(True); sl["sp"].setValue(v); sl["sp"].blockSignals(False)
+                            self._busy = False
+                        except Exception:
+                            self._busy = False
+                try: self.src.recompute()
+                except Exception: pass
+                if self._restore: self._status.setText("Restored")
+                self._restore = {}
+            # ---- mode switch ----
+            def _mode_changed(self, mode):
+                self._timer.stop(); self._anim = None
+                self._play.setChecked(False); self._bplay.setChecked(False); self._cplay.setChecked(False)
+                self._restore_vals()
+                t = mode == "Timeline"
+                self._tl_w.setVisible(t); self._bo_w.setVisible(not t)
+                self._save_state()
+            # ---- keyframes ----
+            def _toggle_collapse(self):
+                self._collapsed = not self._collapsed
+                if self._content: self._content.setVisible(not self._collapsed)
+                self._fold.setText("▸" if self._collapsed else "▾")
+                self._fold.setToolTip(
+                    "Click to expand  |  Right-click to close" if self._collapsed
+                    else "Click to collapse  |  Right-click to close")
+                if self._collapsed:
+                    self._expanded_h = self.height()
+                    self.setFixedHeight(self.minimumSizeHint().height())
+                else:
+                    self.setMinimumHeight(0); self.setMaximumHeight(16777215)
+                    self.resize(self.width(), self._expanded_h)
+
+            def _step(self):
+                self.currentFrame = min(self.currentFrame + 1, self.maxFrame)
+                self._interpolate(); self._sync_display()
+            def _clear_kf(self):
+                self.keyframes.clear()
+                self.tbar.update(); self._status.setText("Cleared")
+            def _add_key(self):
+                vals = {}
+                for pn in self.slots: vals[pn] = self.src.get(pn)
+                self.keyframes[self.currentFrame] = vals
+                self.tbar.update(); self._status.setText("Key @" + str(self.currentFrame))
+            def _del_key(self):
+                self.keyframes.pop(self.currentFrame, None)
+                self.tbar.update(); self._status.setText("Del @" + str(self.currentFrame))
+            # ---- save / load ----
+            def _save_kf(self):
+                import json
+                path, _ = QtGui.QFileDialog.getSaveFileName(self, "Save Keyframes", "", "JSON (*.json)")
+                if not path: return
+                with open(path, 'w') as f: json.dump({"keyframes": self.keyframes}, f, indent=2)
+                self._status.setText("Saved " + os.path.basename(path))
+            def _load_kf(self):
+                import json
+                path, _ = QtGui.QFileDialog.getOpenFileName(self, "Load Keyframes", "", "JSON (*.json)")
+                if not path: return
+                with open(path, 'r') as f: data = json.load(f)
+                self.keyframes = {int(k): v for k, v in data.get("keyframes", {}).items()}
+                self._status.setText("Loaded " + os.path.basename(path)); self.tbar.update()
+            def _export_frames(self):
+                import os
+                folder = QtGui.QFileDialog.getExistingDirectory(self, "Select output folder")
+                if not folder: return
+                was_active = self._timer.isActive()
+                if was_active: self._timer.stop()
+                saved_frame = self.currentFrame
+                self._status.setText("Exporting...")
+                QtGui.QApplication.processEvents()
+                view = FreeCADGui.activeDocument().activeView()
+                for f in range(self.maxFrame + 1):
+                    self.currentFrame = f
+                    if self._mode.currentText() == "Timeline":
+                        self._interpolate()
+                    else:
+                        pn = self._sel.currentData()
+                        t = f / max(self.maxFrame, 1)
+                        v = self._lo.value() + (self._hi.value() - self._lo.value()) * t
+                        self.src.set(pn, v)
+                    self.src.recompute()
+                    QtGui.QApplication.processEvents()
+                    fp = os.path.join(folder, f"frame_{f:04d}.png")
+                    try:
+                        view.saveImage(fp)
+                    except Exception:
+                        try:
+                            from PySide import QtGui as QG2
+                            w = view.getWidget()
+                            if w:
+                                QG2.QPixmap.grabWidget(w).save(fp)
+                        except Exception: pass
+                self.currentFrame = saved_frame
+                self._interpolate(); self._sync_display()
+                if was_active: self._timer.start(int(1000/(self.fps*max(self._stp.value(),0.1))))
+                self._status.setText("Exported " + str(self.maxFrame+1) + " frames")
+            # ---- interpolation ----
+            def _interpolate(self, frame=None):
+                if frame is None: frame = self.currentFrame
+                sf = sorted(self.keyframes.keys())
+                if not sf: return
+                if frame <= sf[0]: vals = self.keyframes[sf[0]]
+                elif frame >= sf[-1]: vals = self.keyframes[sf[-1]]
+                else:
+                    lo = max(f for f in sf if f <= frame); hi = min(f for f in sf if f >= frame)
+                    if lo == hi: vals = self.keyframes[lo]
+                    else:
+                        t = (frame - lo) / (hi - lo); vals = {}
+                        for p in self.slots:
+                            if p in self.keyframes[lo] and p in self.keyframes[hi]:
+                                vlo, vhi = self.keyframes[lo][p], self.keyframes[hi][p]
+                                vals[p] = vlo + (vhi - vlo) * t
+                            elif p in self.keyframes[lo]: vals[p] = self.keyframes[lo][p]
+                            else: vals[p] = self.keyframes[hi].get(p, 0)
+                for p, v in vals.items():
+                    if p in self.slots: self.src.set(p, v)
+                self.src.recompute()
+            def _sync_display(self):
+                self._frm.blockSignals(True); self._frm.setValue(self.currentFrame); self._frm.blockSignals(False)
+                for pn, sl in self.slots.items():
+                    v = self.src.get(pn)
+                    sv = int(sl["half"] + v*sl["scale"])
+                    sl["s"].blockSignals(True); sl["s"].setValue(sv); sl["s"].blockSignals(False)
+                    sl["sp"].blockSignals(True); sl["sp"].setValue(v); sl["sp"].blockSignals(False)
+                self.tbar.update()
+            def _set_frame(self, f): self.currentFrame = f; self._interpolate(); self._sync_display()
+            def _maxf_changed(self): self.tbar.update()
+            # ---- collapse play button ----
+            def _cplay_toggled(self, on):
+                if self._mode.currentText() == "Timeline":
+                    self._play.setChecked(on)
+                else:
+                    self._bplay.setChecked(on)
+            # ---- play: timeline ----
+            def _tog(self, on):
+                self._cplay.blockSignals(True); self._cplay.setChecked(on); self._cplay.blockSignals(False)
+                if on:
+                    self._snapshot()
+                    self._timer.start(int(1000/(self.fps*max(self._stp.value(),0.1))))
+                else:
+                    self._timer.stop(); self._restore_vals()
+            # ---- play: bounce ----
+            def _btog(self, on):
+                self._cplay.blockSignals(True); self._cplay.setChecked(on); self._cplay.blockSignals(False)
+                if on:
+                    self._snapshot()
+                    pn = self._sel.currentData()
+                    self._anim = {"prop": pn, "lo": self._lo.value(), "hi": self._hi.value(), "step": self._stp.value()}
+                    self._timer.start(int(1000/(self.fps*max(self._stp.value(),0.1))))
+                else:
+                    self._timer.stop(); self._anim = None; self._restore_vals()
+            def _eval_exprs(self): pass
+            def _has_exprs(self): return False
+            def _tick(self):
+                if self._anim:
+                    a = self._anim
+                    v = self.src.get(a["prop"]) + a["step"]
+                    if v >= a["hi"]: v = a["lo"]
+                    self.src.set(a["prop"], v)
+                    self.src.recompute()
+                    self._sync_display()
+                elif self.keyframes:
+                    self.currentFrame += 1
+                    if self.currentFrame > self.maxFrame: self.currentFrame = 0
+                    self._interpolate(); self._sync_display()
+                else:
+                    self._play.setChecked(False)
+
+        if hasattr(self, 'panel') and self.panel:
+            self.panel._force_close = True
+            self.panel._timer.stop(); self.panel.close(); self.panel.deleteLater()
+        self.panel = SliderPanel()
+        self.panel.show(); self.panel.raise_(); self.panel.activateWindow()
 
 
 Gui.addCommand("DynamicData2CreateObject", DynamicData2CreateObjectCommandClass())
@@ -2980,4 +3699,5 @@ Gui.addCommand("DynamicData2RetypeProperty", DynamicData2RetyePropertyCommandCla
 Gui.addCommand("DynamicData2SetTooltip", DynamicData2SetTooltipCommandClass())
 Gui.addCommand("DynamicData2Settings", DynamicData2SettingsCommandClass())
 Gui.addCommand("DynamicData2CopyProperty", DynamicData2CopyPropertyCommandClass())
+Gui.addCommand("DynamicData2Sliders", DynamicData2SlidersCommandClass())
 Gui.addCommand("DynamicData2Commands", DynamicData2Commands())
