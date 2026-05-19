@@ -18,6 +18,9 @@
 **Profile Library Guide / 轮廓库教程**
 <video src="https://github.com/user-attachments/assets/26157577-2dc4-4720-a9f2-5244bf8269fd"></video>
 
+**How to Add Profiles / 如何添加型材轮廓**
+<video src="https://github.com/user-attachments/assets/1b6b1319-25f9-48ca-8ac3-de276c8d5269"></video>
+
 ---
 
 ## Installation / 安装
@@ -241,9 +244,6 @@ Real-time slider control for Dynamic Data properties and sketch constraints. / �
 ---
 
 ## How to Add Profiles / 如何添加型材轮廓
-
-**Adding Profile Library Method / 添加轮廓库方法**
-<video src="https://github.com/user-attachments/assets/1b6b1319-25f9-48ca-8ac3-de276c8d5269"></video>
 
 ### Getting Cross-Sections / 获取截面
 
