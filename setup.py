@@ -9,7 +9,8 @@ with open(version_path) as fp:
 setup(
     name="frameforgemod",
     version=str(__version__),
-    packages=["freecad", "freecad.frameforgemod", "freecad.frameforgemod.dynamicdata"],
+    packages=["freecad", "freecad.frameforgemod", "freecad.frameforgemod.dynamicdata",
+],
     maintainer="frameforgemod contributors",
     url="https://github.com/frameforgemod/frameforgemod",
     description="frameforgemod - Modified fork of FrameForge for creating Frames and Beams.",

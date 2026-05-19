@@ -3225,6 +3225,7 @@ class DynamicData2SlidersCommandClass:
                 self.maxFrame = 100
                 self.fps = 24
                 self._anim = None
+                self._tracks = []
                 self._timer = QtCore.QTimer(self)
                 self._timer.timeout.connect(self._tick)
                 self._busy = False
@@ -3254,19 +3255,23 @@ class DynamicData2SlidersCommandClass:
                 tr.addWidget(self._sel)
                 self._cplay = QtGui.QPushButton("Play"); self._cplay.setCheckable(True)
                 self._cplay.setFixedWidth(50)
-                self._cplay.toggled.connect(self._cplay_toggled)
+                self._cplay.toggled.connect(self._play_by_mode)
                 self._cplay.setStyleSheet("QPushButton:checked{background:#4caf50;color:#fff;font-weight:bold}")
                 tr.addWidget(self._cplay)
                 tr.addWidget(QtGui.QLabel("Spd"))
                 self._stp = QtGui.QDoubleSpinBox()
-                self._stp.setRange(0.01,99999); self._stp.setValue(0.3); self._stp.setFixedWidth(60)
+                self._stp.setRange(0.01,99999); self._stp.setValue(5.0); self._stp.setFixedWidth(60)
                 self._stp.valueChanged.connect(lambda v: (
                     self._stp2.blockSignals(True), self._stp2.setValue(v), self._stp2.blockSignals(False),
                     setattr(self,'step',v),
                     self._anim.update({'step':v}) if self._anim else None,
-                    self._timer.setInterval(int(1000/(self.fps*max(v,0.1)))) if self._timer.isActive() else None
+                    self._timer.setInterval(self._timer_interval()) if self._timer.isActive() else None
                 ) and None)
                 tr.addWidget(self._stp)
+                self._addbtn = QtGui.QPushButton("+"); self._addbtn.setFixedWidth(24)
+                self._addbtn.setToolTip("Add properties from selected object(s)")
+                self._addbtn.clicked.connect(self._add_sources)
+                tr.addWidget(self._addbtn)
                 self._fold = QtGui.QPushButton("▾"); self._fold.setFixedWidth(24)
                 self._fold.setToolTip("Click to collapse  |  Right-click to close")
                 self._fold.clicked.connect(self._toggle_collapse)
@@ -3287,7 +3292,7 @@ class DynamicData2SlidersCommandClass:
                 mr = QtGui.QHBoxLayout()
                 mr.addWidget(QtGui.QLabel("Mode:"))
                 self._mode = QtGui.QComboBox()
-                self._mode.addItems(["Timeline", "Bounce"])
+                self._mode.addItems(["Timeline", "Bounce", "Tracks"])
                 self._mode.currentTextChanged.connect(self._mode_changed)
                 mr.addWidget(self._mode); mr.addStretch()
                 self._save = QtGui.QPushButton("Save"); self._save.clicked.connect(self._save_kf)
@@ -3313,7 +3318,7 @@ class DynamicData2SlidersCommandClass:
                 fr.addWidget(self._maxf)
                 fr.addWidget(QtGui.QLabel("FPS:"))
                 self._fps = QtGui.QSpinBox(); self._fps.setRange(1,120); self._fps.setValue(24)
-                self._fps.valueChanged.connect(lambda v: setattr(self,'fps',v) or (self._timer.setInterval(int(1000/(self.fps*max(self._stp.value(),0.1)))) if self._timer.isActive() else None))
+                self._fps.valueChanged.connect(lambda v: setattr(self,'fps',v) or (self._timer.setInterval(self._timer_interval()) if self._timer.isActive() else None))
                 fr.addWidget(self._fps); tw.addLayout(fr)
                 kr = QtGui.QHBoxLayout()
                 self._addk = QtGui.QPushButton("+ Key"); self._addk.clicked.connect(self._add_key)
@@ -3322,10 +3327,7 @@ class DynamicData2SlidersCommandClass:
                 kr.addWidget(self._delk)
                 self._clear = QtGui.QPushButton("Clear"); self._clear.clicked.connect(self._clear_kf)
                 kr.addWidget(self._clear); kr.addStretch()
-                self._play = QtGui.QPushButton("Play"); self._play.setCheckable(True)
-                self._play.toggled.connect(self._tog)
-                self._play.setStyleSheet("QPushButton:checked{background:#4caf50;color:#fff;font-weight:bold}")
-                kr.addWidget(self._play); tw.addLayout(kr)
+                tw.addLayout(kr)
                 al.addWidget(self._tl_w)
                 # bounce controls
                 self._bo_w = QtGui.QWidget()
@@ -3347,19 +3349,35 @@ class DynamicData2SlidersCommandClass:
                 r3 = QtGui.QHBoxLayout()
                 r3.addWidget(QtGui.QLabel("Spd"))
                 self._stp2 = QtGui.QDoubleSpinBox()
-                self._stp2.setRange(0.01,99999); self._stp2.setValue(0.3)
+                self._stp2.setRange(0.01,99999); self._stp2.setValue(5.0)
                 self._stp2.valueChanged.connect(lambda v: (
                     self._stp.blockSignals(True), self._stp.setValue(v), self._stp.blockSignals(False),
                     self._anim.update({'step':v}) if self._anim else None,
-                    self._timer.setInterval(int(1000/(self.fps*max(v,0.1)))) if self._timer.isActive() else None
+                    self._timer.setInterval(self._timer_interval()) if self._timer.isActive() else None
                 ) and None)
                 r3.addWidget(self._stp2); r3.addStretch()
-                self._bplay = QtGui.QPushButton("Play"); self._bplay.setCheckable(True)
-                self._bplay.toggled.connect(self._btog)
-                self._bplay.setStyleSheet("QPushButton:checked{background:#4caf50;color:#fff;font-weight:bold}")
-                r3.addWidget(self._bplay); bw.addLayout(r3)
+                bw.addLayout(r3)
                 self._bo_w.setVisible(False)
                 al.addWidget(self._bo_w)
+                # ---- tracks controls ----
+                self._seq_w = QtGui.QWidget()
+                sqw = QtGui.QVBoxLayout(self._seq_w); sqw.setContentsMargins(0,0,0,0)
+                # track list
+                self._track_area = QtGui.QScrollArea()
+                self._track_content = QtGui.QWidget()
+                self._track_layout = QtGui.QVBoxLayout(self._track_content)
+                self._track_area.setWidget(self._track_content)
+                self._track_area.setWidgetResizable(True)
+                self._track_area.setFixedHeight(150)
+                sqw.addWidget(self._track_area)
+                # + add button
+                ar = QtGui.QHBoxLayout()
+                self._add_track_btn = QtGui.QPushButton("+ Add Track")
+                self._add_track_btn.clicked.connect(self._add_track)
+                ar.addWidget(self._add_track_btn); ar.addStretch()
+                sqw.addLayout(ar)
+                self._seq_w.setVisible(False)
+                al.addWidget(self._seq_w)
                 af.setLayout(al); cx.addWidget(af)
                 # status
                 bh = QtGui.QHBoxLayout()
@@ -3370,6 +3388,16 @@ class DynamicData2SlidersCommandClass:
                 sa.setWidgetResizable(True)
                 sa.setWidget(self._content)
                 lo.addWidget(sa)
+                # unified Play + Loop row (bottom)
+                pr = QtGui.QHBoxLayout()
+                self._bottom_play = QtGui.QPushButton("Play"); self._bottom_play.setCheckable(True)
+                self._bottom_play.toggled.connect(self._play_by_mode)
+                self._bottom_play.setStyleSheet("QPushButton:checked{background:#4caf50;color:#fff;font-weight:bold}")
+                self._bottom_play.setFixedHeight(32)
+                pr.addWidget(self._bottom_play)
+                self._sq_loop = QtGui.QCheckBox("Loop")
+                pr.addWidget(self._sq_loop); pr.addStretch()
+                lo.addLayout(pr)
                 self.setLayout(lo)
             def _update_range(self):
                 pn = self._sel.currentData()
@@ -3406,11 +3434,12 @@ class DynamicData2SlidersCommandClass:
                     s.valueChanged.connect(lambda x, sp=sp, sc=scale, hh=half: sp.setValue((x-hh)/sc))
                     sp.valueChanged.connect(lambda x, pn=pn: self._ch(pn, x))
                 cb = QtGui.QCheckBox("Perm")
+                vl = QtGui.QLineEdit(); vl.setPlaceholderText("0,50,100"); vl.setFixedWidth(80); vl.setVisible(False)
                 g = QtGui.QGroupBox(pn)
                 gl = QtGui.QVBoxLayout()
-                h = QtGui.QHBoxLayout(); h.addWidget(s, stretch=2); h.addWidget(sp, stretch=1); h.addWidget(cb)
+                h = QtGui.QHBoxLayout(); h.addWidget(s, stretch=2); h.addWidget(sp, stretch=1); h.addWidget(cb); h.addWidget(vl)
                 gl.addLayout(h); g.setLayout(gl); lo.addWidget(g)
-                self.slots[pn] = {"s":s,"sp":sp,"scale":scale,"half":half,"cb":cb}
+                self.slots[pn] = {"s":s,"sp":sp,"scale":scale,"half":half,"cb":cb,"vl":vl}
             def _ch(self, pn, v):
                 if self._busy: return
                 self._busy = True
@@ -3456,18 +3485,33 @@ class DynamicData2SlidersCommandClass:
                     self.setGeometry(x, y, w, h)
             # ---- close ----
             def closeEvent(self, event):
+                if self._force_close:
+                    self._save_close(event)
+                    event.accept(); return
+                if self._pg.GetBool("closeNoPrompt", False):
+                    self._save_close(event)
+                    event.accept(); return
                 if self._timer.isActive():
                     r = QtGui.QMessageBox.question(self, "Animation Running",
                         "Animation is still running.\nStop and close?",
                         QtGui.QMessageBox.Yes | QtGui.QMessageBox.No)
                     if r == QtGui.QMessageBox.No: event.ignore(); return
                     self._timer.stop()
-                elif not self._force_close:
-                    r = QtGui.QMessageBox.question(self, "Close Sliders",
-                        "Close the Sliders panel?",
-                        QtGui.QMessageBox.Yes | QtGui.QMessageBox.No)
+                else:
+                    cb = QtGui.QCheckBox("Don't show again / 下次不提醒")
+                    msg = QtGui.QMessageBox(self)
+                    msg.setWindowTitle("Close Sliders")
+                    msg.setText("Close the Sliders panel?")
+                    msg.setCheckBox(cb)
+                    msg.setStandardButtons(QtGui.QMessageBox.Yes | QtGui.QMessageBox.No)
+                    r = msg.exec_()
                     if r == QtGui.QMessageBox.No: event.ignore(); return
-                self._restore_vals()
+                    if cb.isChecked(): self._pg.SetBool("closeNoPrompt", True)
+                    self._save_close(event)
+
+            def _save_close(self, event):
+                if self._timer.isActive():
+                    self._timer.stop(); self._restore_vals()
                 g = self.geometry()
                 self._pg.SetInt("geoX", g.x()); self._pg.SetInt("geoY", g.y())
                 self._pg.SetInt("geoW", g.width()); self._pg.SetInt("geoH", g.height())
@@ -3488,6 +3532,12 @@ class DynamicData2SlidersCommandClass:
                 self._lo.setValue(self._pg.GetFloat("bounceLo", 0))
                 self._hi.setValue(self._pg.GetFloat("bounceHi", 360))
                 self._stp.setValue(self._pg.GetFloat("bounceStep", 0.3))
+                import json
+                for td in json.loads(self._pg.GetString("tracks", "[]")):
+                    f = td.get("from") or td.get("target")
+                    t = td.get("to") or f
+                    self._add_track(prop=td.get("prop"), from_val=f, to_val=t, dur=td.get("dur"))
+                self._sq_loop.setChecked(self._pg.GetBool("seqLoop", False))
             def _save_state(self):
                 self._pg.SetString("mode", self._mode.currentText())
                 self._pg.SetInt("maxFrame", self.maxFrame)
@@ -3498,18 +3548,24 @@ class DynamicData2SlidersCommandClass:
                 self._pg.SetFloat("bounceStep", self._stp.value())
                 for pn, sl in self.slots.items():
                     self._pg.SetBool("perm_"+pn, sl.get("cb",QtGui.QCheckBox()).isChecked())
+                import json
+                track_data = [{"prop": t["prop_cb"].currentText(), "from": t["from_w"].value(), "to": t["to_w"].value(), "dur": t["dur_w"].value()} for t in self._tracks]
+                self._pg.SetString("tracks", json.dumps(track_data))
+                self._pg.SetBool("seqLoop", self._sq_loop.isChecked())
             # ---- snapshot / restore ----
             def _snapshot(self):
                 self._restore = {}
                 for pn in self.slots: self._restore[pn] = self.src.get(pn)
             def _restore_vals(self):
                 src = self._restore if self._restore else self._open_restore
+                changed = False
                 for pn, v in src.items():
                     if pn in self.slots:
                         if self.slots[pn].get("cb") and self.slots[pn]["cb"].isChecked(): continue
                         try:
                             self._busy = True
                             self.src.set(pn, v)
+                            changed = True
                             sl = self.slots[pn]
                             sv = int(sl["half"] + v*sl["scale"])
                             sl["s"].blockSignals(True); sl["s"].setValue(sv); sl["s"].blockSignals(False)
@@ -3517,18 +3573,125 @@ class DynamicData2SlidersCommandClass:
                             self._busy = False
                         except Exception:
                             self._busy = False
-                try: self.src.recompute()
-                except Exception: pass
+                if changed:
+                    try: self.src.recompute()
+                    except Exception: pass
                 if self._restore: self._status.setText("Restored")
                 self._restore = {}
             # ---- mode switch ----
             def _mode_changed(self, mode):
                 self._timer.stop(); self._anim = None
-                self._play.setChecked(False); self._bplay.setChecked(False); self._cplay.setChecked(False)
+                self._set_play_buttons(False)
                 self._restore_vals()
-                t = mode == "Timeline"
-                self._tl_w.setVisible(t); self._bo_w.setVisible(not t)
+                self._tl_w.setVisible(mode == "Timeline")
+                self._bo_w.setVisible(mode == "Bounce")
+                self._seq_w.setVisible(mode == "Tracks")
                 self._save_state()
+            # ---- tracks ----
+            def _add_track(self, prop=None, from_val=None, to_val=None, dur=None):
+                w = QtGui.QWidget()
+                r = QtGui.QHBoxLayout(w); r.setContentsMargins(0,0,0,0)
+                cb = QtGui.QComboBox()
+                cb.blockSignals(True)
+                for pn, pt, *rest in self._plist:
+                    cb.addItem(pn, pn)
+                if prop is not None and cb.findText(str(prop)) >= 0:
+                    cb.setCurrentText(str(prop))
+                cb.blockSignals(False)
+                cb.setMinimumWidth(120)
+                r.addWidget(cb); r.addWidget(QtGui.QLabel("→"))
+                pn = cb.currentText()
+                try:
+                    v = self.src.get(pn)
+                except Exception:
+                    v = 0
+                fw = QtGui.QDoubleSpinBox(); fw.setRange(-99999, 99999); fw.setDecimals(3)
+                fw.setValue(from_val if from_val is not None else v)
+                tw = QtGui.QDoubleSpinBox(); tw.setRange(-99999, 99999); tw.setDecimals(3)
+                tw.setValue(to_val if to_val is not None else v)
+                r.addWidget(fw); r.addWidget(QtGui.QLabel("→")); r.addWidget(tw)
+                td = QtGui.QDoubleSpinBox(); td.setRange(0.01, 9999); td.setValue(dur if dur else 1.0); td.setSuffix(" s"); td.setDecimals(2)
+                r.addWidget(td)
+                rm = QtGui.QPushButton("×"); rm.setFixedWidth(24)
+                r.addWidget(rm)
+                self._track_layout.addWidget(w)
+                entry = {"prop_cb": cb, "from_w": fw, "to_w": tw, "dur_w": td, "widget": w}
+                self._tracks.append(entry)
+                def _on_prop_changed(text, cb=cb, fw=fw, tw=tw):
+                    try:
+                        if text in [p[0] for p in self._plist]:
+                            v = self.src.get(text)
+                            fw.setValue(v); tw.setValue(v)
+                    except Exception: pass
+                cb.currentTextChanged.connect(_on_prop_changed)
+                rm.clicked.connect(lambda checked, e=entry: self._remove_track(e))
+                self._save_state()
+            def _remove_track(self, entry):
+                if entry in self._tracks: self._tracks.remove(entry)
+                w = entry["widget"]
+                self._track_layout.removeWidget(w); w.deleteLater()
+                self._save_state()
+            def _clear_tracks(self):
+                while self._tracks:
+                    entry = self._tracks.pop()
+                    w = entry["widget"]
+                    self._track_layout.removeWidget(w); w.deleteLater()
+                self._save_state()
+            def _repopulate_track_combos(self):
+                for t in self._tracks:
+                    cb = t["prop_cb"]
+                    old = cb.currentText()
+                    cb.blockSignals(True); cb.clear()
+                    for pn, pt, *rest in self._plist:
+                        cb.addItem(pn, pn)
+                    idx = cb.findText(old)
+                    if idx >= 0: cb.setCurrentIndex(idx)
+                    cb.blockSignals(False)
+            # ---- add sources ----
+            def _add_sources(self):
+                sel = FreeCADGui.Selection.getSelection()
+                if not sel:
+                    self._status.setText("Select object(s) first"); return
+                new_subs = []
+                for o in sel:
+                    if hasattr(o,'Constraints') and hasattr(o,'setDatum'):
+                        s = _SketchSource(o)
+                        if s.items(): new_subs.append((o.Label, s))
+                        continue
+                    pl = _get_animatable_properties(o)
+                    if pl: new_subs.append((o.Label, _DD2Source(o, pl)))
+                if not new_subs: return
+                old = self.src
+                if isinstance(old, _MultiSource):
+                    cur = dict(old.sources)
+                else:
+                    cur = {old.label: old}
+                new_labels = [l for l,_ in new_subs if l not in cur]
+                if not new_labels:
+                    self._status.setText("Already added"); return
+                cur.update((l,s) for l,s in new_subs if l in new_labels)
+                self.src = _MultiSource(list(cur.items())) if len(cur)>1 else list(cur.values())[0]
+                saved = {}
+                for pn in self.slots:
+                    try: saved[pn] = self.src.get(pn)
+                    except: pass
+                self._plist = list(self.src.items())
+                cx = self._content.layout()
+                while cx.count() > 2:
+                    item = cx.takeAt(0)
+                    w = item.widget()
+                    if w: w.deleteLater()
+                self.slots = {}
+                for pn, pt, *rest in self._plist:
+                    self._add_row(cx, pn, pt)
+                self._sel.clear(); self._sel2.clear()
+                for pn, pt, *rest in self._plist:
+                    self._sel.addItem(pn, pn); self._sel2.addItem(pn, pn)
+                for pn in self.slots:
+                    if pn in saved: self.src.set(pn, saved[pn])
+                self._open_restore = {pn: self.src.get(pn) for pn in self.slots}
+                self._repopulate_track_combos()
+                self._status.setText("+ " + ", ".join(new_labels))
             # ---- keyframes ----
             def _toggle_collapse(self):
                 self._collapsed = not self._collapsed
@@ -3543,10 +3706,6 @@ class DynamicData2SlidersCommandClass:
                 else:
                     self.setMinimumHeight(0); self.setMaximumHeight(16777215)
                     self.resize(self.width(), self._expanded_h)
-
-            def _step(self):
-                self.currentFrame = min(self.currentFrame + 1, self.maxFrame)
-                self._interpolate(); self._sync_display()
             def _clear_kf(self):
                 self.keyframes.clear()
                 self.tbar.update(); self._status.setText("Cleared")
@@ -3596,16 +3755,10 @@ class DynamicData2SlidersCommandClass:
                     fp = os.path.join(folder, f"frame_{f:04d}.png")
                     try:
                         view.saveImage(fp)
-                    except Exception:
-                        try:
-                            from PySide import QtGui as QG2
-                            w = view.getWidget()
-                            if w:
-                                QG2.QPixmap.grabWidget(w).save(fp)
-                        except Exception: pass
+                    except Exception: pass
                 self.currentFrame = saved_frame
                 self._interpolate(); self._sync_display()
-                if was_active: self._timer.start(int(1000/(self.fps*max(self._stp.value(),0.1))))
+                if was_active: self._timer.start(self._timer_interval())
                 self._status.setText("Exported " + str(self.maxFrame+1) + " frames")
             # ---- interpolation ----
             def _interpolate(self, frame=None):
@@ -3627,7 +3780,8 @@ class DynamicData2SlidersCommandClass:
                             else: vals[p] = self.keyframes[hi].get(p, 0)
                 for p, v in vals.items():
                     if p in self.slots: self.src.set(p, v)
-                self.src.recompute()
+                try: self.src.recompute()
+                except Exception: pass
             def _sync_display(self):
                 self._frm.blockSignals(True); self._frm.setValue(self.currentFrame); self._frm.blockSignals(False)
                 for pn, sl in self.slots.items():
@@ -3638,28 +3792,57 @@ class DynamicData2SlidersCommandClass:
                 self.tbar.update()
             def _set_frame(self, f): self.currentFrame = f; self._interpolate(); self._sync_display()
             def _maxf_changed(self): self.tbar.update()
-            # ---- collapse play button ----
-            def _cplay_toggled(self, on):
-                if self._mode.currentText() == "Timeline":
-                    self._play.setChecked(on)
+            # ---- play (unified) ----
+            def _set_play_buttons(self, on):
+                for b in (self._cplay, self._bottom_play):
+                    b.blockSignals(True); b.setChecked(on); b.blockSignals(False)
+            def _timer_interval(self):
+                return int(1000/(self.fps*max(self._stp.value(),0.1)))
+            def _play_by_mode(self, on):
+                m = self._mode.currentText()
+                if m == "Timeline":
+                    self._tog(on)
+                elif m == "Bounce":
+                    self._btog(on)
                 else:
-                    self._bplay.setChecked(on)
+                    self._stog(on)
             # ---- play: timeline ----
             def _tog(self, on):
-                self._cplay.blockSignals(True); self._cplay.setChecked(on); self._cplay.blockSignals(False)
+                self._set_play_buttons(on)
                 if on:
                     self._snapshot()
-                    self._timer.start(int(1000/(self.fps*max(self._stp.value(),0.1))))
+                    self._timer.start(self._timer_interval())
                 else:
                     self._timer.stop(); self._restore_vals()
             # ---- play: bounce ----
             def _btog(self, on):
-                self._cplay.blockSignals(True); self._cplay.setChecked(on); self._cplay.blockSignals(False)
+                self._set_play_buttons(on)
                 if on:
                     self._snapshot()
                     pn = self._sel.currentData()
-                    self._anim = {"prop": pn, "lo": self._lo.value(), "hi": self._hi.value(), "step": self._stp.value()}
-                    self._timer.start(int(1000/(self.fps*max(self._stp.value(),0.1))))
+                    self._anim = {"mode": "bounce", "prop": pn, "lo": self._lo.value(), "hi": self._hi.value(), "step": self._stp.value()}
+                    self._timer.start(self._timer_interval())
+                else:
+                    self._timer.stop(); self._anim = None; self._restore_vals()
+            # ---- play: tracks ----
+            def _stog(self, on):
+                self._set_play_buttons(on)
+                if on:
+                    if not self._tracks:
+                        self._status.setText("Add tracks first"); self._set_play_buttons(False); return
+                    self._snapshot()
+                    tracks = []
+                    for t in self._tracks:
+                        pn = t["prop_cb"].currentText()
+                        if pn not in self.slots: continue
+                        start = t["from_w"].value()
+                        target = t["to_w"].value()
+                        dur = t["dur_w"].value()
+                        tracks.append({"prop": pn, "start": start, "target": target, "dur": max(dur, 0.01)})
+                    if not tracks:
+                        self._status.setText("No valid tracks"); self._set_play_buttons(False); return
+                    self._anim = {"mode": "tracks", "tracks": tracks, "loop": self._sq_loop.isChecked(), "elapsed": 0.0}
+                    self._timer.start(self._timer_interval())
                 else:
                     self._timer.stop(); self._anim = None; self._restore_vals()
             def _eval_exprs(self): pass
@@ -3667,17 +3850,37 @@ class DynamicData2SlidersCommandClass:
             def _tick(self):
                 if self._anim:
                     a = self._anim
-                    v = self.src.get(a["prop"]) + a["step"]
-                    if v >= a["hi"]: v = a["lo"]
-                    self.src.set(a["prop"], v)
-                    self.src.recompute()
-                    self._sync_display()
+                    if a.get("mode") == "tracks":
+                        dt = self._timer_interval() / 1000.0
+                        elapsed = a["elapsed"] + dt
+                        a["elapsed"] = elapsed
+                        all_done = True
+                        for tr in a.get("tracks", []):
+                            if elapsed < tr["dur"]:
+                                t = elapsed / tr["dur"]
+                                v = tr["start"] + (tr["target"] - tr["start"]) * t
+                                self.src.set(tr["prop"], v)
+                                all_done = False
+                            else:
+                                self.src.set(tr["prop"], tr["target"])
+                        self.src.recompute(); self._sync_display()
+                        if all_done:
+                            if a.get("loop"):
+                                a["elapsed"] = 0.0
+                            else:
+                                self._set_play_buttons(False)
+                    elif a.get("mode") == "bounce":
+                        v = self.src.get(a["prop"]) + a.get("step", 0.3)
+                        if v >= a.get("hi", 360): v = a.get("lo", 0)
+                        self.src.set(a["prop"], v)
+                        self.src.recompute()
+                        self._sync_display()
                 elif self.keyframes:
                     self.currentFrame += 1
                     if self.currentFrame > self.maxFrame: self.currentFrame = 0
                     self._interpolate(); self._sync_display()
                 else:
-                    self._play.setChecked(False)
+                    self._set_play_buttons(False)
 
         if hasattr(self, 'panel') and self.panel:
             self.panel._force_close = True

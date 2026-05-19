@@ -8,7 +8,8 @@
 > ⚠️ 本 Mod 代码由 AI (Claude) 辅助生成。AI 对 FreeCAD API 的理解可能不准确，使用前请先测试，操作前备份文件。
 
 <video src="https://github.com/user-attachments/assets/9b82ec2a-d3f6-48d9-b804-f1c74c3f432c"></video>
-**DENO
+
+**Profile Creation Tutorial / 型材创建教程**
 <video src="https://github.com/user-attachments/assets/7afd0c91-624a-48f2-9319-2409226ca223"></video>
 
 **Profile Creation Tutorial 2 / 型材创建教程 2**
@@ -55,152 +56,187 @@ Select profiles via `.FCStd` cross-section files (AGB 20~60 series, Chinese/Euro
 - Rotation (0/90/180/270) / 旋转（0/90/180/270）
 - Option A: in-place update — no new objects created when changing params / Option A 原地更新：改参数时不新建对象
 
-### Known Bugs / 已知问题
+### Create Profile / 创建型材
 
-- `shape` temporary files may remain in the design tree / shape 临时文件残留设计树
-- After drilling (MT), auto-face-hide may not work; manual Space-hide needed / MT 打孔后自动隐藏失效，需手动空格隐藏
-- Creating profiles may occasionally produce extra profiles / 创建型材时可能产生多余的型材
+1. Select sketch edges / wires in 3D view / 选择草图边线
+2. Click **Profile** → choose Material / Family / Size / 选材料/系列/型号
+3. Set rotation (0/90/180/270°) and anchor alignment / 旋转角、锚点对齐
+4. **OK** → parametric profiles with bevel support / 生成参数化型材（支持两端斜切）
+- Cross-section types: V-Slot, T-Slot, Chinese/European standard / 截面类型：V-Slot、T-Slot、国标/欧标
 
-### Create Profile / 创建型材（标准 Profile）
+### Create Custom Profile / 自定义截面型材
 
-- Create parametric aluminum profiles from sketch edges / wires / 从草图边或边线创建参数化铝型材
-- `PropertyLinkSub` → linked to skeleton edge / 关联到骨架边线
-- End bevel cuts, mirror, anchor alignment, rotation / 支持 bevel 切割（两端）、镜像、锚点对齐、旋转角
-- Cross-section types: V-Slot, T-Slot (multi-groove), Chinese/European standard / 截面类型：V-Slot、T-Slot（多种槽布局）、国标/欧标系列
-
-### Create Custom Profile / 自定义型材
-
-- Select any sketch as profile cross-section / 用户选择任意草图作为型材截面
-- Links `Part::Feature` as Shape source / 关联 Part::Feature 作为 Shape 源
+1. Draw a closed-wire sketch as cross-section / 画一个闭合轮廓草图
+2. Select sketch + skeleton edge → click **Custom Profile** / 选草图+骨架边
+3. The sketch becomes the profile shape / 草图即截面形状
 
 ### End Miter / 端部斜接
 
-- Select two adjacent faces → auto-calculates miter angle / 选择两个相邻面 → 自动计算斜接角度
-- Creates `TrimmedProfile` (`_Mt`), supports Gap / 创建 TrimmedProfile（\_Mt），支持 Gap
-- Auto-hides original profile / 自动隐藏原型材
+1. Select two adjacent profile **faces** / 选两个相邻型材面
+2. Click **End Miter** → auto-calculates miter angle / 自动计算斜接角度
+3. Creates `TrimmedProfile` (`_Mt`) — original profile auto-hidden / 生成 `TrimmedProfile`，原型材自动隐藏
+- Supports Gap parameter / 支持间隙
 
 ### End Trim / 端部裁切
 
-- Select profile face + trimming boundary face → creates TrimmedProfile (`_Tr`) / 选择被裁型材面 + 裁切边界面 → 创建 TrimmedProfile（\_Tr）
-- Auto-hides original profile / 裁切后自动隐藏原型材
+1. Select profile face (to cut) + trimming boundary face / 选被裁面 + 裁切边界面
+2. Click **End Trim** → `TrimmedProfile` (`_Tr`) created / 生成 `TrimmedProfile`
+- Cut type: Simple fit / Perfect fit / 裁切类型：简易 / 完美贴合
 
 ### Adjust Ends / 调整端头
 
-- Multi-select profiles, click target face → auto-detect A/B end / 多选型材，点击目标面自动检测 A/B 端
-- Positive = extend, negative = shorten / 正值延伸、负值缩短
-- Supports multiple target faces / 支持多点目标面累积
+1. Multi-select profiles, click target face / 多选型材，点击目标面
+2. Auto-detects A/B end, positive = extend, negative = shorten / 自动检测 A/B 端，正值延伸、负值缩短
+3. Supports multiple target faces for cumulative adjustment / 支持多点目标面累积调整
 
-### Hole Feature / 打孔
+### Hole / 打孔
 
-- Select profile face + sketch points/circles/edges → auto boolean cut / 选择型材面 + 草图点/圆/线 → 自动布尔裁切
-- Hole type: Through / Blind / Counterbore / 孔类型：Through / Blind / Counterbore
-- Bolt presets: M3~M12, Pin2.5~Pin10 / 螺栓预设：M3~M12、Pin2.5~Pin10
-- Edit hole size: double-click `HoleFeature` / 编辑孔尺寸：双击 HoleFeature
-- `CutResult` removed (DAG cycle fix) / CutResult 已移除（修复 DAG 循环）
+1. Click profile **face** (drill direction = face normal) / 点型材面（钻孔方向 = 面法向）
+2. Select sketch points / circles / lines (circle → center, line → endpoints) / 选草图点/圆/线（圆心/端点）
+3. Set HoleType (Through / Blind / Counterbore) & BoltSpec (M3~M12, Pin2.5~Pin10) / 设孔类型与规格
+4. **OK** → auto Part::Cut → `{SizeName}_Cut` (original + cutter auto-hidden) / 自动布尔裁切
+- **Apply**: save + clear selection, continue drilling / 保存继续
+- Edit hole: double-click `HoleFeature` in tree / 双击 HoleFeature 编辑
 
-### Whistle Connector / 哨子连接器
+### Connector / 连接件打孔
 
-- Select groove face + end face → auto-calculate hole position / 选择凹槽面 + 端面 → 自动计算孔位置
-- QY built-in connector model selector (Auto or QY16-8-30/QY20-8-40/QY20-10-45) / QY 内置连接件规格选择
-- Connector specs: M6/M8/M10 / 连接器规格：M6/M8/M10
+#### Whistle Connector / 哨子连接器 (M,W)
 
-### T-Joint Connector / T 型连接器
+1. Select groove face / 选凹槽面
+2. Optionally select end face (position offset) / 可选端面（定位距离）
+3. Auto-detects QY spec (Auto / QY16-8-30 / QY20-8-40 / QY20-10-45) / 自动检测 QY 规格
+4. **OK** → auto Part::Cut / 自动打孔
 
-- Select B side face + A end face → auto-detect end face hole / 选择 B 侧面 + A 端面 → 自动检测端面孔
-- Screw size match: M6/M8/M10/M12/M14 / 匹配螺丝规格：M6/M8/M10/M12/M14
-- Manual select / auto match / 手动选择/自动匹配
+#### T-Joint Connector / T 型连接器 (M,T)
+
+1. Select B side face (connector hidden → unobstructed view) / 选 B 侧面（连接件隐藏，不挡视图）
+2. Select A end face → auto-detect hole + screw match / 选 A 端面 → 自动检测孔位+匹配螺丝
+3. Screw sizes: M6/M8/M10/M12/M14 / 螺丝规格
+4. **OK** → auto Part::Cut / 自动打孔
 
 ### End Cap / 端盖
 
-- Plate / Plug type, adjustable thickness / 板式 / 插入式，厚度可调
-- Edge chamfer / fillet / 边线倒角 / 圆角
-- Center threaded hole: M3~M14 / 中心螺纹孔：M3~M14
-- Counterbore / through hole / 沉头 / 通孔
+1. Select profile end face / 选型材端面
+2. Set Type (Plate / Plug), Thickness, Gap / 选类型、厚度、偏移
+3. Optional: center hole (M3~M14), chamfer / fillet / 可选：中心螺纹孔、倒角/圆角
+4. **Apply**: save + continue; **OK**: save & close
 
 ### Gusset / 角撑板
 
-- Two adjacent faces → triangular support plate / 两个相邻面 → 三角支撑板
-- Right-angle chamfer + acute-angle chamfer / 直角边倒角 + 锐角边倒角
-- Optional center hole / 中心孔可选
-- Position alignment (left/center/right), thickness alignment (front/center/rear) / 位置对齐（左/中/右）、厚度对齐（前/中/后）
+1. Select two adjacent faces / 选两个相邻面
+2. Set thickness, chamfer, optional center hole / 设厚度、倒角、中心孔
+3. Position alignment (left/center/right), thickness alignment (front/center/rear) / 位置对齐、厚度对齐
 
 ### Extruded Cutout / 拉伸切空
 
-- Select profile face + sketch → boolean cut along normal / 选择型材面 + 草图 → 沿法向拉伸布尔裁切
-- Through All / specified depth / Through All / 指定深度
+1. Select profile face + sketch in 3D view / 选型材面+草图
+2. Click **Extruded Cutout** → boolean cut along face normal / 沿面法向拉伸布尔裁切
+3. Mode: Through All / specified depth / 贯通 / 指定深度
 
 ### Vent / 通风口
 
-- Select body + sketch in tree, click Vent toolbar / 设计树选择实体+草图，点击工具栏 Vent
-- Boundary + rib edges → opening + reinforcing bars / 选择边界 + 肋条边线 → 开孔 + 加强筋
-- Rib width, fillet / 肋宽、圆角
+1. Select body + sketch in tree / 设计树选实体+草图
+2. Click **Vent** → pick boundary + rib edges / 选边界+肋条边
+3. Set rib width, fillet / 设肋宽、圆角
 
 ### Pattern Fill / 填充阵列
 
-- Select body + sketch in tree, click Fill toolbar / 设计树选择实体+草图，点击工具栏 Fill
-- Circle / Hexagon / User sketch pattern fill / 圆形 / 六边形 / 用户草图阵列填充
-- Grid mode: Staggered / Rectangular / 网格模式：Staggered（交错）/ Rectangular（矩形）
-- Gradient scale (center to edge) / 渐变缩放（中心→边缘）
-- Debounced: smooth param dragging / 防抖优化：拖参数不卡
+1. Select body + sketch in tree / 设计树选实体+草图
+2. Click **Fill** → choose pattern (Circle / Hexagon / User sketch) / 选填充图案
+3. Grid mode: Staggered / Rectangular / 网格模式：交错/矩形
+4. Gradient scale from center to edge / 支持中心→边缘渐变缩放
+5. Debounced sliders: smooth real-time preview / 防抖优化，拖参数不卡
 
 ### Offset Plane / 偏移基准面
 
-- Select face → creates PartDesign::Plane at specified distance / 选择面 → 创建指定距离的 PartDesign::Plane
+1. Select a face → click **Offset Plane** / 选面 → 点击偏移面
+2. Set distance → creates `PartDesign::Plane` / 设距离 → 生成基准面
 
 ### BOM / 物料清单
 
-- Generates Spreadsheet: Parent, ID, Family, SizeName, Length, CutAngle1, CutAngle2, Drill/Cutout, Qty, Material, Weight, UnitPrice, Name / 生成 Spreadsheet
-- Cut List: stock optimization (first-fit-decreasing algorithm) / Cut List：余料优化
-- Stock length (default 6000mm) / Kerf (default 1mm) / Stock 长度（默认 6000mm）/ Kerf（默认 1mm）
+1. Select Part Containers / Profiles / Links / 选部件容器/型材/链接
+2. Click **Create BOM** → generates Spreadsheet + CutList / 生成 BOM 表格 + 余料优化清单
+3. BOM columns: Parent, ID, Family, SizeName, Length, CutAngle1/2, Qty, Material, Weight, Price / BOM 列
+4. Cut List: Stock length (default 6000mm), Kerf (default 1mm), FFD algorithm / 余料清单：Stock/切口优化
+- Angle notation: `@` = TrimmedProfile angle, `P` = Perfect Cut (Notch), `-/*` = Bevel direction / 角度表示法
 
 ### Populate IDs / ID 自动编号
 
-- ID assignment: numbers / letters / combined / 型材 ID 分配策略：数字/字母/组合
-- Group identical profiles: same ID + xN count / 分组：相同型材同 ID + xN 计数
-- Mode: fill_selection / fill_document / continue_document / start_at / 模式
+1. Select profiles / links / containers / 选型材/链接/容器
+2. Click **Populate IDs** → configure in task panel / 配置策略
+3. Options: numbering type (Numbers / Letters / Combined), mode (selection / document / continue / start at) / 编号类型与模式
+4. Group identical profiles → same ID + xN count / 相同型材同 ID + 数量标注
+- **Reset IDs**: clear all IDs in document / 清除所有 ID
 
 ### Dynamic Data (DD) / 动态数据
 
-This mod bundles the Dynamic Data addon for attaching custom properties to any object. / 本 Mod 集成了动态数据插件，可为任意对象附加自定义属性。
+Attach custom properties to any FreeCAD object. / 为任意对象附加自定义属性。
 
-**Common usage / 常用场景：**
-- Drive sketch dimensions via DD properties (e.g. `dd.x`, `dd.y`) / 通过 DD 属性驱动草图尺寸
-- Store BOM-related data (part number, supplier, note) / 存储 BOM 相关信息
-- Create configurations for different frame variants / 创建不同配置方案
-
-**How to use / 使用：**
-1. Click Dynamic Data → Create Object / 点击创建对象
-2. Right-click the `dd` object → Add Property / 右键添加属性
-3. Set a value (e.g. `x = 500`)
-4. In Sketch constraint expression: `dd.x` / 在草图约束表达式中引用：`dd.x`
-5. DD object auto-refreshes on document open / 自动刷新
+**Usage / 使用：**
+1. Click **Dynamic Data** → **Create Object** / 创建 DD 对象
+2. Right-click `dd` → **Add Property** (e.g. `x = 500`) / 右键添加属性
+3. Reference in sketch constraints: `dd.x` / 在草图约束中引用
+4. **Sliders**: real-time slider panel for DD properties / Sliders 按钮打开实时滑条面板
+5. Auto-refreshes on document open / 文档打开时自动刷新
 
 ### TechDraw Balloons / 技术图纸标注
 
-- Create / refresh balloon annotations, auto-linked to profile IDs / 创建/刷新气球标注，自动关联型材 ID
+1. Create a TechDraw page + insert a View / 创建技术图纸页面+插入视图
+2. Select the View + profiles/links in tree / 选择视图+型材/链接
+3. Click **Create Balloons** → auto-annotated with IDs / 自动生成气球标注（带 ID）
+4. **Refresh Balloons**: update arrow positions after geometry changes / 几何变更后刷新箭头位置
 
 ### Isolate / 隔离显示
 
-- Selected → hide all others / 选中对象 → 其余全部隐藏
-- Exit isolate: configurable skip keywords (Constraint/Joint/Revolute/Slider/Plane/Origin/Link etc.) / 退出时配置跳过关键词
-- Assembly support: parent container + LinkedObject auto-kept visible / 支持装配体
-- Settings: customize skip keywords / Settings：定制跳过关键词
+1. Select object(s) → click **Isolate** / 选中对象 → 其余全部隐藏
+2. Exit isolate: right-click → **Exit Isolate** / 右键退出隔离
+- Configurable skip keywords (Constraint, Joint, Plane, Origin, Link...) / 可配置跳过关键词
+- Assembly support: parent container + LinkedObject stay visible / 装配体支持
 
 ### Parametric Line / 参数化线
 
-- Select two vertices → creates Part::LineSegment / 选择两个顶点 → 创建 Part::LineSegment
+1. Select two vertices / 选两个顶点
+2. Click **Parametric Line** → creates `Part::LineSegment` / 生成参数化线段
 
 ### Attached Link / 附着链接
 
-- Creates App::Link + Part::AttachExtensionPython, with PID / 创建 App::Link + Part::AttachExtensionPython，带 PID
+1. Select an object in tree + click **Attached Link** / 设计树选对象 → 点击附着链接
+2. Attachment editor opens → map to vertex/edge/face of skeleton / 附着到骨架顶点/边/面
+3. Creates `App::Link` + `Part::AttachExtensionPython`, with PID / 生成带 PID 的附着链接
+- Changes to source object propagate to all links / 源对象变更自动同步到所有链接
 
 ### Recompute / 强制更新
 
-- Recursively recompute all Profile / TrimmedProfile / ExtrudedCutout / 递归重新计算
+Recursively recompute all Profile / TrimmedProfile / ExtrudedCutout objects. / 递归重新计算所有型材/裁剪/拉伸切空对象。
 
 ### Export TechDraw / 导出技术图纸
 
-- Export all TechDraw pages to PDF / 所有 TechDraw 页面导出为 PDF
+Export all TechDraw pages to PDF with one click. / 一键将所有 TechDraw 页面导出为 PDF。
+
+### Color Profiles / 颜色管理
+
+Automatically assign distinguishable colors to profiles. / 自动为型材分配区分度最大的颜色。
+- Same specs (section + length + angle + thickness + type) = same color / 相同规格 = 同一颜色
+- Different specs = different color (golden-ratio hue spacing) / 不同规格 = 不同颜色（黄金比例色相间距）
+- Top-level profiles colored by **ColorProfiles** button / 手动点 ColorProfiles 按钮触发
+- MW/MT/holes inherit parent profile color via signals / 子对象自动继承父型材颜色
+
+### Sliders / 实时滑条面板
+
+Real-time slider control for Dynamic Data properties and sketch constraints. / 为 DD 属性和草图约束提供实时滑条控制。
+
+1. Click **Sliders** in Dynamic Data toolbar / 点 Sliders 按钮
+2. Drag sliders → model updates in real time / 拖拽滑条，模型即时更新
+3. Support Timeline animation and Bounce mode / 支持 Timeline 逐帧动画和 Bounce 往复动画
+4. Angle constraints auto-convert degrees↔radians / Angle 约束自动度↔弧度转换
+5. Window position remembered between sessions / 窗口位置自动记忆
+
+### Known Bugs / 已知问题
+
+- `shape` temporary files may remain in the design tree / shape 临时文件可能残留设计树
+- After drilling, auto-face-hide may not work; manual Space-hide needed / 打孔后自动隐藏可能失效，需手动空格隐藏
+- Creating profiles may occasionally produce duplicates / 创建型材时偶发多出型材
+- DAG cycle when trimming already-trimmed profiles / 裁剪已裁剪的型材会产生循环依赖
 
 ---
 
@@ -278,8 +314,8 @@ Steel profiles are currently few, and any help adding more is welcome. / 钢材�
 | Profile Group | Std_Group, Std_Part |
 | Part Primitives | AttachedLink, Part_Fuse, Part_Cut, PartDesign_Body |
 | FrameForge output | PopulateIDs, ResetIDs, CreateBalloons, RefreshBalloons, CreateBOM |
-| Dynamic Data | CreateObject, AddProperty, CopyProperty, CreateConfiguration |
-| Other Tools | AddVent, PatternFill, OffsetPlane |
+| Dynamic Data | CreateObject, AddProperty, CopyProperty, CreateConfiguration, Sliders |
+| Other Tools | AddVent, PatternFill, OffsetPlane, ColorProfiles |
 | Utilities | Recompute, ExportTechDraw, Isolate, IsolateSettings |
 
 ---
