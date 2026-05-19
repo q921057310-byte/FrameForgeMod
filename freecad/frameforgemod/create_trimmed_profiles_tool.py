@@ -337,10 +337,7 @@ def make_trimmed_profile(trimmedBody=None, trimmingBoundary=None):
     trimmed_profile = doc.addObject("Part::FeaturePython", name)
 
     if trimmedBody is not None and len(trimmedBody.Parents) > 0:
-        try:
-            trimmedBody.Parents[-1][0].addObject(trimmed_profile)
-        except Exception:
-            pass
+        trimmedBody.Parents[-1][0].addObject(trimmed_profile)
 
     TrimmedProfile(trimmed_profile)
 

@@ -441,9 +441,13 @@ class WhistleConnector:
             if fp.DrillFace and len(fp.DrillFace) >= 2:
                 key.append(fp.DrillFace[0].Name)
                 key.append(fp.DrillFace[1][0])
+                try: key.append(fp.DrillFace[0].Shape.hashCode())
+                except Exception: pass
             if fp.EndFace and len(fp.EndFace) >= 2:
                 key.append(fp.EndFace[0].Name)
                 key.append(fp.EndFace[1][0])
+                try: key.append(fp.EndFace[0].Shape.hashCode())
+                except Exception: pass
             return hash(tuple(key))
         except Exception:
             return None

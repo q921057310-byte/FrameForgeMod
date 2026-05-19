@@ -167,7 +167,7 @@ class CreateCustomProfileTaskPanel:
             "None",  # self.form.combo_size.currentText(),
             False,  # self.form.cb_combined_bevel.isChecked(),
             link_sub,
-            self.custom_profile,
+            self.custom_profile.Shape if self.custom_profile else None,
             init_rotation=0.0,
         )
 

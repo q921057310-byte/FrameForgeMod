@@ -33,9 +33,6 @@ def _register_profile_metadata(obj, pid_readonly=True):
     if not hasattr(obj, "Family"):
         obj.addProperty("App::PropertyString", "Family", "Profile", "")
         obj.setEditorMode("Family", 1)
-    if not hasattr(obj, "CustomProfile"):
-        obj.addProperty("App::PropertyLink", "CustomProfile", "Profile", translate("App::Property", "Target profile")).CustomProfile = None
-        obj.setEditorMode("CustomProfile", 1)
     if not hasattr(obj, "SizeName"):
         obj.addProperty("App::PropertyString", "SizeName", "Profile", "")
         obj.setEditorMode("SizeName", 1)

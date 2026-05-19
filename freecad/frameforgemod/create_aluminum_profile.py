@@ -1041,32 +1041,12 @@ class ImportAluminumProfileTaskPanel:
             if use_simple:
                 App.ActiveDocument.recompute()
             else:
-                # Full preview: create real profiles with shape objects
-                # Group by parent object → one shared Shape per parent
-                parent_shapes = {}
-                for sel, edge_name in pairs:
-                    key = sel.ObjectName
-                    if key not in parent_shapes:
-                        feat = doc.addObject("Part::Feature", f"{name_base}_Shape_{key}_shared")
-                        feat.Shape = sketch_data["shape"]
-                        source_file = sketch_data.get("source_file", "")
-                        if source_file and not hasattr(feat, "SourceFile"):
-                            feat.addProperty("App::PropertyString", "SourceFile", "frameforgemod", "Source FCStd file path")
-                            feat.SourceFile = source_file
-                            feat.setEditorMode("SourceFile", 2)
-                        try:
-                            feat.ViewObject.Visibility = False
-                        except Exception:
-                            pass
-                        parent_shapes[key] = feat
-                        new_names.add(feat.Name)  # track for cleanup on reject
-
+                # Full preview: create real profiles with embedded BREP shapes
                 self._preview_pairs = []
                 counter = 0
                 for sel, edge_name in pairs:
                     try:
-                        shared = parent_shapes.get(sel.ObjectName)
-                        obj = self.create_profile(sketch_data, sel, edge_name, counter, existing_shape=shared)
+                        obj = self.create_profile(sketch_data, sel, edge_name, counter)
                         if obj is not None:
                             self._preview_pairs.append((obj.Name, _Sel(sel.Object, [edge_name])))
                             new_names.add(obj.Name)
@@ -1169,6 +1149,11 @@ class ImportAluminumProfileTaskPanel:
             if shape_obj is not None and hasattr(shape_obj, "Shape"):
                 shape_obj.Shape = sketch_data["shape"]
                 shape_obj.Label = sketch_data["label"] + "_Shape"
+            if hasattr(obj, "CrossSectionBrep"):
+                try:
+                    obj.CrossSectionBrep = sketch_data["shape"].exportBrepToString()
+                except Exception:
+                    pass
 
             proxy = getattr(obj, "Proxy", None)
             if proxy is not None:
@@ -1200,6 +1185,11 @@ class ImportAluminumProfileTaskPanel:
                 if sib_shape is not None and hasattr(sib_shape, "Shape"):
                     sib_shape.Shape = sketch_data["shape"]
                     sib_shape.Label = sketch_data["label"] + "_Shape"
+                if hasattr(sib, "CrossSectionBrep"):
+                    try:
+                        sib.CrossSectionBrep = sketch_data["shape"].exportBrepToString()
+                    except Exception:
+                        pass
                 sib.Label = sketch_data["label"].replace(" ", "_") + "_Profile"
                 if hasattr(sib, "RotationAngle"):
                     sib.RotationAngle = new_rot
@@ -1366,19 +1356,7 @@ class ImportAluminumProfileTaskPanel:
         doc = App.ActiveDocument or App.newDocument("Unnamed")
         edge_length = self.sb_length.value()
         name_base = sketch_data["label"].replace(" ", "_")
-        feat_name = f"{name_base}_Shape_{counter:03d}"
-        feat = doc.addObject("Part::Feature", feat_name)
-        feat.Shape = sketch_data["shape"]
         source_file = sketch_data.get("source_file", "")
-        if source_file:
-            if not hasattr(feat, "SourceFile"):
-                feat.addProperty("App::PropertyString", "SourceFile", "frameforgemod", "Source FCStd file path")
-            feat.SourceFile = source_file
-            feat.setEditorMode("SourceFile", 2)
-        try:
-            feat.ViewObject.Visibility = False
-        except Exception:
-            pass
         name = f"{name_base}_Profile_{counter:03d}"
         obj = doc.addObject("Part::FeaturePython", name)
         obj.addExtension("Part::AttachExtensionPython")
@@ -1394,7 +1372,7 @@ class ImportAluminumProfileTaskPanel:
             sketch_data["label"],
             False,
             None,
-            feat,
+            sketch_data["shape"],
             init_rotation=float(self.combo_rotation.currentText()),
         )
         ViewProviderCustomProfile(obj.ViewObject)
@@ -1402,12 +1380,6 @@ class ImportAluminumProfileTaskPanel:
             obj.MapMode = "Deactivated"
         except Exception:
             pass
-        if hasattr(obj, "CrossSectionBrep"):
-            try:
-                obj.CrossSectionBrep = sketch_data["shape"].exportBrepToString()
-            except Exception:
-                pass
-        source_file = sketch_data.get("source_file", "")
         if source_file and not hasattr(obj, "SourceFile"):
             try:
                 obj.addProperty("App::PropertyString", "SourceFile", "frameforgemod",
@@ -1769,7 +1741,7 @@ class ImportAluminumProfileTaskPanel:
         Gui.Control.closeDialog()
 
     # ---- Profile creation ----
-    def create_profile(self, sketch_data, selection, edge_name, counter=0, existing_shape=None):
+    def create_profile(self, sketch_data, selection, edge_name, counter=0):
         import Part
         doc = App.ActiveDocument or App.newDocument("Unnamed")
 
@@ -1789,24 +1761,6 @@ class ImportAluminumProfileTaskPanel:
             edge_length = self.sb_length.value()
 
         name_base = sketch_data["label"].replace(" ", "_")
-
-        # Use shared Shape if provided, otherwise create a new one
-        if existing_shape is not None:
-            feat = existing_shape
-        else:
-            feat_name = f"{name_base}_Shape_{counter:03d}"
-            feat = doc.addObject("Part::Feature", feat_name)
-            feat.Shape = sketch_data["shape"]
-            source_file = sketch_data.get("source_file", "")
-            if source_file:
-                if not hasattr(feat, "SourceFile"):
-                    feat.addProperty("App::PropertyString", "SourceFile", "frameforgemod", "Source FCStd file path")
-                feat.SourceFile = source_file
-                feat.setEditorMode("SourceFile", 2)
-            try:
-                feat.ViewObject.Visibility = False
-            except Exception:
-                pass
 
         if is_curved and edge_obj is not None:
             try:
@@ -1878,7 +1832,7 @@ class ImportAluminumProfileTaskPanel:
             sketch_data["label"],
             False,
             (sketch, (edge_name,)),
-            feat,
+            sketch_data["shape"],
             init_rotation=float(self.combo_rotation.currentText()),
         )
 

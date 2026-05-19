@@ -2993,6 +2993,8 @@ def _get_animatable_properties(obj):
             attr = getattr(obj, p)
         except Exception:
             continue
+        if isinstance(attr, bool):
+            continue
         if isinstance(attr, (int, float)):
             entry = (p, obj.getTypeIdOfProperty(p))
         elif isinstance(attr, App.Units.Quantity):
@@ -3507,11 +3509,12 @@ class DynamicData2SlidersCommandClass:
                     r = msg.exec_()
                     if r == QtGui.QMessageBox.No: event.ignore(); return
                     if cb.isChecked(): self._pg.SetBool("closeNoPrompt", True)
-                    self._save_close(event)
+                self._save_close(event)
 
             def _save_close(self, event):
                 if self._timer.isActive():
-                    self._timer.stop(); self._restore_vals()
+                    self._timer.stop()
+                self._restore_vals()
                 g = self.geometry()
                 self._pg.SetInt("geoX", g.x()); self._pg.SetInt("geoY", g.y())
                 self._pg.SetInt("geoW", g.width()); self._pg.SetInt("geoH", g.height())
@@ -3811,7 +3814,8 @@ class DynamicData2SlidersCommandClass:
                 self._set_play_buttons(on)
                 if on:
                     self._snapshot()
-                    self._timer.start(self._timer_interval())
+                    ti = int(1000 / self.fps) if self.keyframes else self._timer_interval()
+                    self._timer.start(ti)
                 else:
                     self._timer.stop(); self._restore_vals()
             # ---- play: bounce ----
