@@ -18,6 +18,9 @@ from freecad.frameforgemod.ff_tools import ICONPATH, translate
 TOOL_ICON = os.path.join(ICONPATH, "line.svg")
 
 
+TOL_COINCIDENT = 1e-7
+
+
 class ParametricLine:
     """Creates a parametric line between two vertexes"""
 
@@ -28,13 +31,19 @@ class ParametricLine:
         obj.Proxy = self
 
     def execute(self, obj):
-        v1 = _utils.getShape(obj, "Vertex1", "Vertex")
-        v2 = _utils.getShape(obj, "Vertex2", "Vertex")
-        if v1 and v2:
-            ls = Part.LineSegment(v1.Point, v2.Point)
-            obj.Shape = ls.toShape()
-        else:
-            App.Console.PrintError("{} broken !\n".format(obj.Label))
+        try:
+            v1 = _utils.getShape(obj, "Vertex1", "Vertex")
+            v2 = _utils.getShape(obj, "Vertex2", "Vertex")
+            if v1 and v2:
+                if v1.Point.distanceToPoint(v2.Point) < TOL_COINCIDENT:
+                    App.Console.PrintWarning(f"{obj.Label}: vertices are coincident, skipping\n")
+                    return
+                ls = Part.LineSegment(v1.Point, v2.Point)
+                obj.Shape = ls.toShape()
+            else:
+                App.Console.PrintError(f"{obj.Label} broken!\n")
+        except Exception as e:
+            App.Console.PrintError(f"{obj.Label} execute failed: {e}\n")
 
 
 class ParametricLineViewProvider:
@@ -58,8 +67,31 @@ class ParametricLineViewProvider:
 class CreateParametricLineCommand:
     """Creates a parametric line between two vertexes"""
 
+    @staticmethod
+    def _find_common_container(source):
+        # find the deepest common group ancestor
+        ancestors = []
+        for obj, _ in source:
+            chain = []
+            p = obj
+            while p:
+                if p.TypeId in ("App::Part", "PartDesign::Body"):
+                    chain.append(p)
+                p = p.getParentGroup()
+            ancestors.append(chain)
+        if not ancestors:
+            return None
+        for c in reversed(ancestors[0]):
+            if all(c in a for a in ancestors[1:]):
+                return c
+        return None
+
     def make_parametric_line(self, source):
-        line_object = App.ActiveDocument.addObject("Part::FeaturePython", "ParametricLine")
+        container = self._find_common_container(source)
+        if container:
+            line_object = container.newObject("Part::FeaturePython", "ParametricLine")
+        else:
+            line_object = App.ActiveDocument.addObject("Part::FeaturePython", "ParametricLine")
 
         ParametricLine(line_object)
         ParametricLineViewProvider(line_object.ViewObject)

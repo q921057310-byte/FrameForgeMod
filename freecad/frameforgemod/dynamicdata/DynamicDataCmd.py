@@ -36,7 +36,7 @@ mostRecentTypesLength = 5 #will be updated from parameters
 from FreeCAD import Gui
 from PySide import QtCore, QtGui
 
-import FreeCAD, FreeCADGui, os, math, re, ast
+import FreeCAD, FreeCADGui, Part, os, math, re, ast
 App = FreeCAD
 Gui = FreeCADGui
 __dir__ = os.path.dirname(__file__)
@@ -3082,7 +3082,8 @@ class _SketchSource:
                         if c.Type == "Angle":
                             val = __import__("math").radians(val)
                         self.obj.setDatum(i, val)
-                    except (TypeError, RuntimeError): pass
+                    except (TypeError, RuntimeError, ValueError):
+                        App.Console.PrintWarning(f"Slider: cannot set constraint #{i} ({c.Type}) to {val}\n")
                     break
         except (AttributeError, IndexError): pass
     def recompute(self):
@@ -3235,6 +3236,9 @@ class DynamicData2SlidersCommandClass:
                 self._collapsed = False
                 self._expanded_h = 0
                 self._force_close = False
+                self._track_points = []
+                self._capture_data = {}
+                self._capturing = False
                 self._pg = FreeCAD.ParamGet("User parameter:BaseApp/Preferences/Mod/DynamicData2/SlidersPanel")
                 self._plist = list(self.src.items())
                 self._build(self._plist)
@@ -3284,11 +3288,6 @@ class DynamicData2SlidersCommandClass:
                 # content (collapsible)
                 self._content = QtGui.QWidget()
                 cx = QtGui.QVBoxLayout(self._content); cx.setSpacing(4); cx.setContentsMargins(0,0,0,0)
-                if not plist:
-                    cx.addWidget(QtGui.QLabel("No numeric properties or constraints"))
-                else:
-                    for pn, pt, *rest in plist:
-                        self._add_row(cx, pn, pt)
                 af = QtGui.QGroupBox("Animation")
                 al = QtGui.QVBoxLayout(); al.setSpacing(3)
                 mr = QtGui.QHBoxLayout()
@@ -3381,6 +3380,41 @@ class DynamicData2SlidersCommandClass:
                 self._seq_w.setVisible(False)
                 al.addWidget(self._seq_w)
                 af.setLayout(al); cx.addWidget(af)
+                # motion path capture
+                mp = QtGui.QGroupBox("Motion Path")
+                ml = QtGui.QVBoxLayout(); ml.setSpacing(3)
+                tr1 = QtGui.QHBoxLayout()
+                self._tp_cb = QtGui.QCheckBox("Track Points")
+                self._tp_cb.toggled.connect(self._on_track_toggled)
+                tr1.addWidget(self._tp_cb)
+                self._sel_btn = QtGui.QPushButton("Select")
+                self._sel_btn.clicked.connect(self._select_points)
+                self._sel_btn.setEnabled(False)
+                tr1.addWidget(self._sel_btn)
+                tr1.addWidget(QtGui.QLabel("Gap:"))
+                self._gap = QtGui.QDoubleSpinBox()
+                self._gap.setRange(0, 10); self._gap.setValue(0.2); self._gap.setDecimals(3)
+                self._gap.setSuffix("mm"); self._gap.setFixedWidth(70)
+                tr1.addWidget(self._gap)
+                self._pts_only = QtGui.QCheckBox("Points")
+                tr1.addWidget(self._pts_only); tr1.addStretch()
+                ml.addLayout(tr1)
+                self._tp_list = QtGui.QListWidget()
+                self._tp_list.setFixedHeight(60)
+                self._tp_list.setSelectionMode(QtGui.QListWidget.ExtendedSelection)
+                self._tp_list.keyPressEvent = lambda e: (self._remove_selected_points() if e.key() == QtCore.Qt.Key_Delete else QtGui.QListWidget.keyPressEvent(self._tp_list, e))
+                ml.addWidget(self._tp_list)
+                self._clear_pts = QtGui.QPushButton("Clear Points")
+                self._clear_pts.clicked.connect(self._clear_tracked_points)
+                self._clear_pts.setEnabled(False)
+                ml.addWidget(self._clear_pts)
+                mp.setLayout(ml); cx.addWidget(mp)
+                # property sliders
+                if not plist:
+                    cx.addWidget(QtGui.QLabel("No numeric properties or constraints"))
+                else:
+                    for pn, pt, *rest in plist:
+                        self._add_row(cx, pn, pt)
                 # status
                 bh = QtGui.QHBoxLayout()
                 self._status = QtGui.QLabel(""); bh.addWidget(self._status)
@@ -3797,11 +3831,22 @@ class DynamicData2SlidersCommandClass:
             def _maxf_changed(self): self.tbar.update()
             # ---- play (unified) ----
             def _set_play_buttons(self, on):
+                if not on:
+                    self._capturing = False
+                    if self._capture_data:
+                        c = sum(len(v) for v in self._capture_data.values())
+                        self._status.setText(f"Captured {c} frames — generating paths...")
+                        QtGui.QApplication.processEvents()
+                        self._generate_paths()
+                        self._clear_tracked_points()
                 for b in (self._cplay, self._bottom_play):
                     b.blockSignals(True); b.setChecked(on); b.blockSignals(False)
             def _timer_interval(self):
                 return int(1000/(self.fps*max(self._stp.value(),0.1)))
             def _play_by_mode(self, on):
+                if on:
+                    self._capture_data = {}
+                    self._capturing = bool(self._track_points)
                 m = self._mode.currentText()
                 if m == "Timeline":
                     self._tog(on)
@@ -3818,11 +3863,55 @@ class DynamicData2SlidersCommandClass:
                     self._timer.start(ti)
                 else:
                     self._timer.stop(); self._restore_vals()
+            # ---- bounce batch capture ----
+            def _batch_capture(self):
+                pn = self._sel.currentData()
+                lo = self._lo.value()
+                hi = self._hi.value()
+                n = 100
+                step = (hi - lo) / (n - 1)
+                data = {}
+                v = lo
+                while v <= hi + 1e-9:
+                    self.src.set(pn, v)
+                    self.src.recompute()
+                    pts = []
+                    for tp in self._track_points:
+                        obj_name = tp[0]
+                        obj = App.ActiveDocument.getObject(obj_name)
+                        if not obj: pts.append(None); continue
+                        vx = obj.getSubObject(tp[1])
+                        if vx and hasattr(vx, 'Point'):
+                            pts.append((vx.Point.x, vx.Point.y, vx.Point.z))
+                        else: pts.append(None)
+                    data[v] = pts
+                    v += step
+                    QtGui.QApplication.processEvents()
+                self.src.set(pn, lo)
+                self.src.recompute()
+                self._capture_data = {}
+                sorted_vs = sorted(data.keys())
+                for i in range(len(self._track_points)):
+                    pts = [data[v][i] for v in sorted_vs if data[v][i] is not None]
+                    if not pts: continue
+                    pts = pts[:-1]  # remove last (duplicate of start), prevents closure artifact
+                    if len(pts) < 5: continue
+                    self._capture_data[i] = pts
+                first_key = next(iter(self._capture_data), None)
+                if first_key is not None:
+                    pts = self._capture_data[first_key]
+                    FreeCAD.Console.PrintMessage(
+                        f"Capture: {len(pts)} pts\n")
+                self._status.setText(f"Captured {n} frames")
             # ---- play: bounce ----
             def _btog(self, on):
                 self._set_play_buttons(on)
                 if on:
                     self._snapshot()
+                    if self._track_points:
+                        self._batch_capture()
+                        self._generate_paths()
+                        self._clear_tracked_points()
                     pn = self._sel.currentData()
                     self._anim = {"mode": "bounce", "prop": pn, "lo": self._lo.value(), "hi": self._hi.value(), "step": self._stp.value()}
                     self._timer.start(self._timer_interval())
@@ -3851,39 +3940,162 @@ class DynamicData2SlidersCommandClass:
                     self._timer.stop(); self._anim = None; self._restore_vals()
             def _eval_exprs(self): pass
             def _has_exprs(self): return False
-            def _tick(self):
-                if self._anim:
-                    a = self._anim
-                    if a.get("mode") == "tracks":
-                        dt = self._timer_interval() / 1000.0
-                        elapsed = a["elapsed"] + dt
-                        a["elapsed"] = elapsed
-                        all_done = True
-                        for tr in a.get("tracks", []):
-                            if elapsed < tr["dur"]:
-                                t = elapsed / tr["dur"]
-                                v = tr["start"] + (tr["target"] - tr["start"]) * t
-                                self.src.set(tr["prop"], v)
-                                all_done = False
-                            else:
-                                self.src.set(tr["prop"], tr["target"])
-                        self.src.recompute(); self._sync_display()
-                        if all_done:
-                            if a.get("loop"):
-                                a["elapsed"] = 0.0
-                            else:
-                                self._set_play_buttons(False)
-                    elif a.get("mode") == "bounce":
-                        v = self.src.get(a["prop"]) + a.get("step", 0.3)
-                        if v >= a.get("hi", 360): v = a.get("lo", 0)
-                        self.src.set(a["prop"], v)
-                        self.src.recompute()
-                        self._sync_display()
-                elif self.keyframes:
-                    self.currentFrame += 1
-                    if self.currentFrame > self.maxFrame: self.currentFrame = 0
-                    self._interpolate(); self._sync_display()
+            # ---- motion path ----
+            def _on_track_toggled(self, on):
+                self._sel_btn.setEnabled(on)
+                self._gap.setEnabled(on)
+                self._clear_pts.setEnabled(on and bool(self._track_points))
+                self._status.setText("Select vertices in 3D view" if on else "")
+            def _select_points(self):
+                sel = FreeCADGui.Selection.getSelectionEx()
+                added = 0
+                for selobj in sel:
+                    if selobj.HasSubObjects:
+                        for sub in selobj.SubElementNames:
+                            if sub.startswith("Vertex"):
+                                key = (selobj.Object.Name, sub)
+                                if key not in self._track_points:
+                                    self._track_points.append(key)
+                                    self._tp_list.addItem(f"{selobj.Object.Name}.{sub}")
+                                    added += 1
+                if added:
+                    self._status.setText(f"Added {added} vertex(es)")
                 else:
+                    self._status.setText("No vertices selected")
+                self._clear_pts.setEnabled(bool(self._track_points))
+                FreeCADGui.Selection.clearSelection()
+            def _remove_selected_points(self):
+                indices = sorted(set(self._tp_list.row(item) for item in self._tp_list.selectedItems()), reverse=True)
+                for idx in indices:
+                    self._tp_list.takeItem(idx)
+                    if idx < len(self._track_points):
+                        self._track_points.pop(idx)
+                        self._capture_data.pop(idx, None)
+                self._clear_pts.setEnabled(bool(self._track_points))
+            def _clear_tracked_points(self):
+                self._track_points = []
+                self._capture_data = {}
+                self._tp_list.clear()
+                self._clear_pts.setEnabled(False)
+                self._status.setText("")
+            def _record_tracked_points(self):
+                pass  # batch capture handles all recording
+            def _generate_paths(self):
+                if not self._capture_data:
+                    self._status.setText("No captured data")
+                    return
+                doc = App.ActiveDocument
+                if not doc:
+                    return
+                count = 0
+                for i, (obj_name, sub) in enumerate(self._track_points[:1]):
+                    pts = self._capture_data.get(i, [])
+                    if len(pts) < 2:
+                        continue
+                    obj_name_clean = obj_name.replace(".", "_")
+                    name = f"MotionPath_{obj_name_clean}_{sub}"
+                    vecs = [App.Vector(*p) for p in pts]
+                    feat = None
+                    if self._pts_only.isChecked():
+                        pts_feat = doc.getObject(name + "_Points")
+                        if not pts_feat:
+                            pts_feat = doc.addObject("Part::Feature", name + "_Points")
+                            pts_feat.Label = f"MotionPath_{obj_name}.{sub}_Points"
+                        pts_feat.Shape = Part.Compound([Part.Vertex(v) for v in vecs])
+                        pts_size = max(1, int(self._gap.value() * 10))
+                        try:
+                            pts_feat.ViewObject.PointSize = pts_size
+                        except Exception:
+                            pass
+                        feat = pts_feat
+                    else:
+                        import math
+                        feat = doc.getObject(name)
+                        if not feat:
+                            feat = doc.addObject("Part::Feature", name)
+                            feat.Label = f"MotionPath_{obj_name}.{sub}"
+                        try:
+                            bs = Part.BSplineCurve()
+                            bs.approximate(Points=vecs, DegMin=3, DegMax=5,
+                                           Tolerance=0.5, Continuity=2)
+                            feat.Shape = bs.toShape()
+                        except Exception:
+                            try:
+                                bs = Part.BSplineCurve()
+                                bs.interpolate(vecs)
+                                feat.Shape = bs.toShape()
+                            except Exception:
+                                try:
+                                    feat.Shape = Part.makePolygon([vecs[0], vecs[-1]])
+                                except Exception:
+                                    feat.Shape = Part.makePolygon(vecs[:50])
+                        try:
+                            feat.ViewObject.Deviation = 0.001
+                            feat.ViewObject.PointSize = 0
+                        except Exception:
+                            pass
+                        diag = feat.Shape
+                        if not diag or diag.isNull():
+                            FreeCAD.Console.PrintMessage("Shape is null (needs recompute)\n")
+                        else:
+                            n_edges = len(diag.Edges)
+                            FreeCAD.Console.PrintMessage(
+                                f"Path: {diag.ShapeType}, Edges={n_edges}, "
+                                f"Verts={len(diag.Vertexes)}, pts={len(pts)}\n")
+                    src_obj = doc.getObject(obj_name)
+                    if src_obj and feat:
+                        p = src_obj
+                        while p:
+                            if p.TypeId in ("App::Part", "PartDesign::Body"):
+                                p.addObject(feat)
+                                break
+                            p = p.getParentGroup()
+                    count += 1
+                if count:
+                    doc.recompute()
+                    self._status.setText(f"Generated {count} path(s)")
+                else:
+                    self._status.setText("No paths (need ≥4 frames)")
+            def _tick(self):
+                try:
+                    if self._anim:
+                        a = self._anim
+                        if a.get("mode") == "tracks":
+                            dt = self._timer_interval() / 1000.0
+                            elapsed = a["elapsed"] + dt
+                            a["elapsed"] = elapsed
+                            all_done = True
+                            for tr in a.get("tracks", []):
+                                if elapsed < tr["dur"]:
+                                    t = elapsed / tr["dur"]
+                                    v = tr["start"] + (tr["target"] - tr["start"]) * t
+                                    self.src.set(tr["prop"], v)
+                                    all_done = False
+                                else:
+                                    self.src.set(tr["prop"], tr["target"])
+                            self.src.recompute(); self._sync_display()
+                            if all_done:
+                                if a.get("loop"):
+                                    a["elapsed"] = 0.0
+                                else:
+                                    self._set_play_buttons(False)
+                        elif a.get("mode") == "bounce":
+                            v = self.src.get(a["prop"]) + a.get("step", 0.3)
+                            if v >= a.get("hi", 360): v = a.get("lo", 0)
+                            self.src.set(a["prop"], v)
+                            self.src.recompute()
+                            self._sync_display()
+                    elif self.keyframes:
+                        self.currentFrame += 1
+                        if self.currentFrame > self.maxFrame: self.currentFrame = 0
+                        self._interpolate(); self._sync_display()
+                    else:
+                        self._set_play_buttons(False)
+                    self._record_tracked_points()
+                except Exception:
+                    App.Console.PrintError("Slider tick error, stopping\n")
+                    self._timer.stop()
+                    self._anim = None
                     self._set_play_buttons(False)
 
         if hasattr(self, 'panel') and self.panel:
