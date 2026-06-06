@@ -358,19 +358,19 @@ def make_trimmed_profile(trimmedBody=None, trimmingBoundary=None):
 
 
 class TrimToolGroup:
-    """Group: adjust ends + trim profile."""
+    """Group: trim profile + adjust ends."""
     def GetCommands(self):
-        return ("frameforgemod_AdjustEnds", "frameforgemod_TrimProfile")
+        return ("frameforgemod_TrimProfile", "frameforgemod_AdjustEnds")
 
     def GetDefaultCommand(self):
         return 0
 
     def GetResources(self):
         return {
-            "Pixmap": os.path.join(ICONPATH, "end-extend.svg"),
-            "MenuText": translate("frameforgemod", "Adjust Ends"),
+            "Pixmap": os.path.join(ICONPATH, "trim_extend.svg"),
+            "MenuText": translate("frameforgemod", "Trim Profile"),
             "ToolTip": translate("frameforgemod",
-                                "Adjust profile end offsets or trim ends"),
+                                "Trim profile ends or adjust offsets"),
         }
 
     def IsActive(self):
