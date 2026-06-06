@@ -12,7 +12,7 @@ setup(
     packages=["freecad", "freecad.frameforgemod", "freecad.frameforgemod.dynamicdata",
 ],
     maintainer="frameforgemod contributors",
-    url="https://github.com/frameforgemod/frameforgemod",
+    url="https://github.com/q921057310-byte/FrameForge_Mod_",
     description="frameforgemod - Modified fork of FrameForge for creating Frames and Beams.",
     include_package_data=True,
 )
