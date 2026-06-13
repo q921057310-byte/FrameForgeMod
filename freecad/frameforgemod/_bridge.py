@@ -59,11 +59,11 @@ except ImportError:
     pass
 
 try:
-    import freecad.frameforgemod.dynamicdata as _dd
+    import freecad.frameforgemod.ffdata as _dd
     sys.modules["freecad.frameforge2.dynamicdata"] = _dd
-    import freecad.frameforgemod.dynamicdata.DynamicDataCmd as _ddc
+    import freecad.frameforgemod.ffdata.ffdata_cmd as _ddc
     sys.modules["freecad.frameforge2.dynamicdata.DynamicDataCmd"] = _ddc
-    import freecad.frameforgemod.dynamicdata.PropertyTableEditor as _ddp
+    import freecad.frameforgemod.ffdata.PropertyTableEditor as _ddp
     sys.modules["freecad.frameforge2.dynamicdata.PropertyTableEditor"] = _ddp
 except ImportError:
     pass

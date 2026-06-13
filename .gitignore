@@ -3,3 +3,32 @@ __pycache__/
 *.FCBak
 .opencode/
 dev_tools/
+
+# Python packaging
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Testing
+.coverage
+htmlcov/
+.pytest_cache/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*~
+
+# Docs / screenshots
+docs/images/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Env
+.env
+.venv/

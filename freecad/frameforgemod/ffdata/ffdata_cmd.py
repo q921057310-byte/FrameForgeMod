@@ -22,9 +22,9 @@
 #                                                                              #
 ################################################################################
 
-__title__   = "DynamicData2"
+__title__   = "FFData"
 __author__  = "Mark Ganson <TheMarkster>"
-__url__     = "https://github.com/mwganson/DynamicData"
+__url__     = "https://github.com/q921057310-byte/FrameForgeMod"
 __date__    = "2025.11.26"
 __version__ = "2.78"
 
@@ -46,7 +46,7 @@ uiPath = os.path.join( __dir__, 'ui' )
 keepToolbar = True
 windowFlags = QtCore.Qt.WindowTitleHint | QtCore.Qt.WindowCloseButtonHint
 
-class DynamicData2BaseCommandClass:
+class FFDataBaseCommandClass:
     """Base class for all commands to provide some common code"""
     #select objects dialog class
     class SelectObjects(QtGui.QDialog):
@@ -110,7 +110,7 @@ class DynamicData2BaseCommandClass:
     def getSelectedObjects(self, objs, label="", checkAll=True):
         """opens a dialog with objs (strings) in a checkboxed list, returns list of selected"""
         if objs:
-            dlg = DynamicData2BaseCommandClass.SelectObjects(objs,label)
+            dlg = FFDataBaseCommandClass.SelectObjects(objs,label)
             if checkAll:
                 dlg.all.setCheckState(QtCore.Qt.Checked)
             else:
@@ -208,7 +208,7 @@ class DynamicData2BaseCommandClass:
     def isDynamic(self,obj,prop):
         """checks whether prop is a dynamic property and not a built-in property
         of obj"""
-        if prop == "DynamicData2":
+        if prop == "FFData":
             return False
         isSo = False
         try:
@@ -221,8 +221,8 @@ class DynamicData2BaseCommandClass:
         return isSo
 
     def isDDObject(self, obj):
-        """checks if this is a DynamicData2 object"""
-        return hasattr(obj, "DynamicData2")
+        """checks if this is a FFData object"""
+        return hasattr(obj, "FFData")
 
     def isUnit(self, name):
         """check if name is a reserved keyword for units, such as T or k"""
@@ -290,16 +290,16 @@ class DynamicData2BaseCommandClass:
 #######################################################################################
 # Keep Toolbar active even after leaving workbench
 
-class DynamicData2SettingsCommandClass(DynamicData2BaseCommandClass):
+class FFDataSettingsCommandClass(FFDataBaseCommandClass):
     """Settings, currently only whether to keep toolbar after leaving workbench"""
     global mostRecentTypes
 
-    class DynamicData2SettingsDlg(QtGui.QDialog):
+    class FFDataSettingsDlg(QtGui.QDialog):
 
-        pg = FreeCAD.ParamGet("User parameter:BaseApp/Preferences/Mod/DynamicData2")
+        pg = FreeCAD.ParamGet("User parameter:BaseApp/Preferences/Mod/FFData")
 
         def __init__(self):
-            super(DynamicData2SettingsCommandClass.DynamicData2SettingsDlg, self).__init__(Gui.getMainWindow())
+            super(FFDataSettingsCommandClass.FFDataSettingsDlg, self).__init__(Gui.getMainWindow())
             self.setAttribute(QtCore.Qt.WA_DeleteOnClose, True)
             self.setAttribute(QtCore.Qt.WA_WindowPropagation, True)
             self.form = QtGui.QWidget()
@@ -325,7 +325,7 @@ class DynamicData2SettingsCommandClass(DynamicData2BaseCommandClass):
             form_lay.addWidget(self.form.AddToFreeCADPreferences)
             form_lay.addLayout(mru_row)
             form_lay.addStretch()
-            self.setWindowTitle("DynamicData2 设置 v" + __version__)
+            self.setWindowTitle("FFData 设置 v" + __version__)
             self.setWindowIcon(QtGui.QIcon(os.path.join(iconPath, "Settings.svg")))
             lay = QtGui.QVBoxLayout(self)
             lay.addWidget(self.form)
@@ -347,7 +347,7 @@ class DynamicData2SettingsCommandClass(DynamicData2BaseCommandClass):
             self.pg.SetBool('CheckForUpdates', self.form.CheckForUpdates.isChecked())
             self.pg.SetBool('AddToFreeCADPreferences',self.form.AddToFreeCADPreferences.isChecked())
             self.pg.SetInt('mruLength', self.form.mruLength.value())
-            super(DynamicData2SettingsCommandClass.DynamicData2SettingsDlg, self).closeEvent(event)
+            super(FFDataSettingsCommandClass.FFDataSettingsDlg, self).closeEvent(event)
 
     def __init__(self):
         pass
@@ -356,40 +356,40 @@ class DynamicData2SettingsCommandClass(DynamicData2BaseCommandClass):
         return {'Pixmap'  : os.path.join( iconPath , 'Settings.svg'), # the name of an icon file available in the resources
                 'MenuText': "设置(&S)",
                 'Accel'   : "Ctrl+Shift+D,S",
-                'ToolTip' : "打开 DynamicData2 工作台设置对话框"}
+                'ToolTip' : "打开 FFData 工作台设置对话框"}
 
     def Activated(self):
-        dlg = self.DynamicData2SettingsDlg()
+        dlg = self.FFDataSettingsDlg()
         dlg.open()
 
     def IsActive(self):
         return True
 
 
-#Gui.addCommand("DynamicData2KeepToolbar", DynamicData2KeepToolbarCommandClass())
+#Gui.addCommand("FFDataKeepToolbar", FFDataKeepToolbarCommandClass())
 
 
 ####################################################################################
 # Create the dynamic data container object
 
-class DynamicData2CreateObjectCommandClass(DynamicData2BaseCommandClass):
+class FFDataCreateObjectCommandClass(FFDataBaseCommandClass):
     """Create Object command"""
 
     def GetResources(self):
         return {'Pixmap'  : os.path.join( iconPath , 'CreateObject.svg'),
                 'MenuText': "创建容器对象(&C)",
                 'Accel'   : "Ctrl+Shift+D,C",
-                'ToolTip' : "创建一个用于存储自定义属性的 DynamicData2 容器对象"}
+                'ToolTip' : "创建一个用于存储自定义属性的 FFData 容器对象"}
 
     def Activated(self):
         doc = FreeCAD.ActiveDocument
         doc.openTransaction("CreateObject")
         a = doc.addObject("App::FeaturePython","dd")
-        a.addProperty("App::PropertyStringList","DynamicData2").DynamicData2=self.getHelp()
+        a.addProperty("App::PropertyStringList","FFData").FFData=self.getHelp()
         setattr(a.ViewObject,'DisplayMode',['0']) #avoid enumeration -1 warning
         doc.commitTransaction()
         Gui.Selection.clearSelection()
-        pg = FreeCAD.ParamGet("User parameter:BaseApp/Preferences/Mod/DynamicData2")
+        pg = FreeCAD.ParamGet("User parameter:BaseApp/Preferences/Mod/FFData")
         if pg.GetBool('AddToActiveContainer',False):
             body = Gui.ActiveDocument.ActiveView.getActiveObject("pdbody")
             part = Gui.ActiveDocument.ActiveView.getActiveObject("part")
@@ -407,25 +407,25 @@ class DynamicData2CreateObjectCommandClass(DynamicData2BaseCommandClass):
         return True
 
     def getHelp(self):
-        return ["Created with DynamicData2 (v"+__version__+") workbench.",
+        return ["Created with FFData (v"+__version__+") workbench.",
                 "This is a simple container object built",
                 "for holding custom properties."
 ]
 
-#Gui.addCommand("DynamicData2CreateObject", DynamicData2CreateObjectCommandClass())
+#Gui.addCommand("FFDataCreateObject", FFDataCreateObjectCommandClass())
 
 ####################################################################################
 # Create or edit an existing configuration
 
-class DynamicData2CreateConfigurationCommandClass(DynamicData2BaseCommandClass):
+class FFDataCreateConfigurationCommandClass(FFDataBaseCommandClass):
     """Create or edit a configuration command"""
-    class DynamicData2ConfigurationDlg(QtGui.QDialog):
+    class FFDataConfigurationDlg(QtGui.QDialog):
         def __init__(self,dd):
-            super(DynamicData2CreateConfigurationCommandClass.DynamicData2ConfigurationDlg, self).__init__(Gui.getMainWindow())
+            super(FFDataCreateConfigurationCommandClass.FFDataConfigurationDlg, self).__init__(Gui.getMainWindow())
             self.setAttribute(QtCore.Qt.WA_WindowPropagation, True)
             self.setAttribute(QtCore.Qt.WA_DeleteOnClose, True)
-            self.setWindowTitle(f"DynamicData2 v{__version__} Configuration Editor")
-            self.setWindowIcon(QtGui.QIcon("Resources/icons/DynamicDataCreateConfiguration.svg"))
+            self.setWindowTitle(f"FFData v{__version__} Configuration Editor")
+            self.setWindowIcon(QtGui.QIcon(os.path.join(iconPath, "FFDataCreateConfiguration.svg")))
             self.dd = dd
             self.configuration = {}
             self.curLineEdit = None #used only in event filter and handleCtrlTab()
@@ -867,7 +867,7 @@ you can use Undo to revert all your changes to the selected object.
 
 
     def GetResources(self):
-        return {'Pixmap'  : os.path.join( iconPath , 'DynamicDataCreateConfiguration.svg'),
+        return {'Pixmap'  : os.path.join( iconPath , 'FFDataCreateConfiguration.svg'),
                 'MenuText': "创建/编辑配置(&F)",
                 'Accel'   : "Ctrl+Shift+D,F",
                 'ToolTip' : "在选中对象中创建或编辑一套属性配置系统"}
@@ -878,7 +878,7 @@ you can use Undo to revert all your changes to the selected object.
 
     def Activated(self):
         doc = FreeCAD.ActiveDocument
-        dlg = self.DynamicData2ConfigurationDlg(self.obj) #self.obj is the selected object
+        dlg = self.FFDataConfigurationDlg(self.obj) #self.obj is the selected object
         dlg.props = self.props
         dlg.exec_()
         doc.recompute()
@@ -893,25 +893,25 @@ you can use Undo to revert all your changes to the selected object.
             return True
         #where nothing is selected and there is only one dd object, use that object
         if len(selection) == 0:
-            dds = [obj for obj in FreeCAD.ActiveDocument.Objects if hasattr(obj,"DynamicData2")]
+            dds = [obj for obj in FreeCAD.ActiveDocument.Objects if hasattr(obj,"FFData")]
             if len(dds) == 1:
                 self.obj = dds[0]
                 return True
         return False
 
 
-#Gui.addCommand("DynamicData2CreateConfiguration", DynamicData2CreateConfigurationCommandClass())
+#Gui.addCommand("FFDataCreateConfiguration", FFDataCreateConfigurationCommandClass())
 
 
 ####################################################################################
 # Edit an existing Enumeration property
 
-class DynamicData2EditEnumerationCommandClass(DynamicData2BaseCommandClass):
+class FFDataEditEnumerationCommandClass(FFDataBaseCommandClass):
     """Edit Enumeration command"""
 
-    class DynamicData2EnumerationDlg(QtGui.QDialog):
+    class FFDataEnumerationDlg(QtGui.QDialog):
         def __init__(self,dd,props):
-            super(DynamicData2EditEnumerationCommandClass.DynamicData2EnumerationDlg, self).__init__(Gui.getMainWindow())
+            super(FFDataEditEnumerationCommandClass.FFDataEnumerationDlg, self).__init__(Gui.getMainWindow())
             self.dd = dd
             self.ok = False
             self.props = props
@@ -919,7 +919,7 @@ class DynamicData2EditEnumerationCommandClass(DynamicData2BaseCommandClass):
             self.enumerations = {}
             self.setupEnumerations()
             self.setAttribute(QtCore.Qt.WA_WindowPropagation, True)
-            self.setWindowTitle(f"DynamicData2 v{__version__} Enumeration Editor")
+            self.setWindowTitle(f"FFData v{__version__} Enumeration Editor")
             lay = QtGui.QVBoxLayout(self)
             self.setLayout(lay)
             self.propertiesLabel = QtGui.QLabel("Enumeration Properties:")
@@ -1001,7 +1001,7 @@ class DynamicData2EditEnumerationCommandClass(DynamicData2BaseCommandClass):
 
 
     def GetResources(self):
-        return {'Pixmap'  : os.path.join( iconPath , 'DynamicDataEditEnumerations.svg'),
+        return {'Pixmap'  : os.path.join( iconPath , 'FFDataEditEnumerations.svg'),
                 'MenuText': "编辑枚举(&E)",
                 'Accel'   : "Ctrl+Shift+D,E",
                 'ToolTip' : "编辑选中对象中的枚举（下拉列表）类型属性"}
@@ -1013,11 +1013,11 @@ class DynamicData2EditEnumerationCommandClass(DynamicData2BaseCommandClass):
     def Activated(self):
         doc = FreeCAD.ActiveDocument
         if not self.props:
-            FreeCAD.Console.PrintError("DynamicData2: Error, no property of type \
+            FreeCAD.Console.PrintError("FFData: Error, no property of type \
 Enumeration to edit.  Create one first, and then try again.\n")
             return
 
-        dlg = self.DynamicData2EnumerationDlg(self.obj, self.props) #the dd object
+        dlg = self.FFDataEnumerationDlg(self.obj, self.props) #the dd object
         dlg.props = self.props
         dlg.exec_()
         if dlg.ok:
@@ -1052,7 +1052,7 @@ Enumeration to edit.  Create one first, and then try again.\n")
             return True
         #where nothing is selected and there is only one dd object, use that object if it has an enumeration property
         if len(selection) == 0:
-            dds = [obj for obj in FreeCAD.ActiveDocument.Objects if hasattr(obj,"DynamicData2")]
+            dds = [obj for obj in FreeCAD.ActiveDocument.Objects if hasattr(obj,"FFData")]
             if len(dds) == 1:
                 self.obj = dds[0]
                 if self.getEnumerations(self.obj):
@@ -1060,7 +1060,7 @@ Enumeration to edit.  Create one first, and then try again.\n")
         return False
 
 
-#Gui.addCommand("DynamicData2EditEnumeration", DynamicData2EditEnumerationCommandClass())
+#Gui.addCommand("FFDataEditEnumeration", FFDataEditEnumerationCommandClass())
 
 ####################################################################################
 # dialog for adding new property
@@ -1320,7 +1320,7 @@ class MultiTextInput(QtGui.QDialog):
 # Add a dynamic property to the object
 
 
-class DynamicData2AddPropertyCommandClass(DynamicData2BaseCommandClass):
+class FFDataAddPropertyCommandClass(FFDataBaseCommandClass):
     """Add Property Command"""
     global mostRecentTypes
     global mostRecentTypesLength
@@ -1336,7 +1336,7 @@ class DynamicData2AddPropertyCommandClass(DynamicData2BaseCommandClass):
         self.tooltip = "tip"
         self.value = 0
 
-        pg = FreeCAD.ParamGet("User parameter:BaseApp/Preferences/Mod/DynamicData2")
+        pg = FreeCAD.ParamGet("User parameter:BaseApp/Preferences/Mod/FFData")
         mostRecentTypesLength = pg.GetInt('mruLength',5)
         for ii in range(0, mostRecentTypesLength):
             mostRecentTypes.append(pg.GetString('mru'+str(ii),""))
@@ -1345,7 +1345,7 @@ class DynamicData2AddPropertyCommandClass(DynamicData2BaseCommandClass):
         return {'Pixmap'  : os.path.join( iconPath , 'AddProperty.svg'),
                 'MenuText': "添加属性(&A)",
                 'Accel'   : "Ctrl+Shift+D,A",
-                'ToolTip' : "Add a custom property to the DynamicData2 object"}
+                'ToolTip' : "Add a custom property to the FFData object"}
 
     def Activated(self):
         """Open the table-based property editor (like SW custom properties)."""
@@ -1458,7 +1458,7 @@ class DynamicData2AddPropertyCommandClass(DynamicData2BaseCommandClass):
             self.obj = selection[0]
             return True
         #in case nothing is selected we can use the dd object, but only if there is only 1 dd object
-        objs = [obj for obj in FreeCAD.ActiveDocument.Objects if hasattr(obj, "DynamicData2")]
+        objs = [obj for obj in FreeCAD.ActiveDocument.Objects if hasattr(obj, "FFData")]
         if len(objs) == 1:
             self.obj = objs[0]
             return True
@@ -1466,12 +1466,12 @@ class DynamicData2AddPropertyCommandClass(DynamicData2BaseCommandClass):
 
 
 
-#Gui.addCommand("DynamicData2AddProperty", DynamicData2AddPropertyCommandClass())
+#Gui.addCommand("FFDataAddProperty", FFDataAddPropertyCommandClass())
 
 ########################################################################################
 # Rename group
 
-class DynamicData2MoveToNewGroupCommandClass(DynamicData2BaseCommandClass):
+class FFDataMoveToNewGroupCommandClass(FFDataBaseCommandClass):
     """Move properties to new group"""
 
     def GetResources(self):
@@ -1493,13 +1493,13 @@ Only works with dynamic properties"}
         window = FreeCADGui.getMainWindow()
         items = self.getGroups(self.obj)
         if not items:
-            FreeCAD.Console.PrintError(f"DynamicData2::Error -- no groups of {self.obj.Label} may be renamed\n")
+            FreeCAD.Console.PrintError(f"FFData::Error -- no groups of {self.obj.Label} may be renamed\n")
             return
         if len(items)==0:
-            FreeCAD.Console.PrintMessage("DynamicData2: no properties.\n")
+            FreeCAD.Console.PrintMessage("FFData: no properties.\n")
             return
         items.insert(0,"<All groups>")
-        item,ok = QtGui.QInputDialog.getItem(window,'DynamicData2','Move properties to new group tool.\n\n\
+        item,ok = QtGui.QInputDialog.getItem(window,'FFData','Move properties to new group tool.\n\n\
 This can be used to rename a group, by moving all properties to a new group.\n\
 Select source group to pick properties from, or all groups to pick from all.\n', items, 0, False, windowFlags)
         if not ok:
@@ -1509,7 +1509,7 @@ Select source group to pick properties from, or all groups to pick from all.\n',
             if props:
                 toGroup = self.getGroups(self.obj,[item])
                 items2 = ["<New group>"] + toGroup
-                item2,ok = QtGui.QInputDialog.getItem(window,'DynamicData2','Move properties to new group tool\n\nSelect destination group\n'\
+                item2,ok = QtGui.QInputDialog.getItem(window,'FFData','Move properties to new group tool\n\nSelect destination group\n'\
                             ,items2, 0, False, windowFlags)
                 if not ok:
                     return
@@ -1543,7 +1543,7 @@ Select source group to pick properties from, or all groups to pick from all.\n',
             return True
         #where nothing is selected and there is only one dd object, use that object
         if len(selection) == 0:
-            dds = [obj for obj in FreeCAD.ActiveDocument.Objects if hasattr(obj,"DynamicData2")]
+            dds = [obj for obj in FreeCAD.ActiveDocument.Objects if hasattr(obj,"FFData")]
             if len(dds) == 1:
                 self.obj = dds[0]
                 return True
@@ -1551,7 +1551,7 @@ Select source group to pick properties from, or all groups to pick from all.\n',
 ########################################################################################
 # Rename a custom dynamic property
 
-class DynamicData2RenamePropertyCommandClass(DynamicData2BaseCommandClass):
+class FFDataRenamePropertyCommandClass(FFDataBaseCommandClass):
     """Rename Property Command"""
     def __init__(self):
         self.obj = None
@@ -1649,18 +1649,18 @@ class DynamicData2RenamePropertyCommandClass(DynamicData2BaseCommandClass):
             return True
         #where nothing is selected and there is only one dd object, use that object
         if len(selection) == 0:
-            dds = [obj for obj in FreeCAD.ActiveDocument.Objects if hasattr(obj,"DynamicData2")]
+            dds = [obj for obj in FreeCAD.ActiveDocument.Objects if hasattr(obj,"FFData")]
             if len(dds) == 1:
                 self.obj = dds[0]
                 return True
         return False
 
-#Gui.addCommand("DynamicData2RenameProperty", DynamicData2RenamePropertyCommandClass())
+#Gui.addCommand("FFDataRenameProperty", FFDataRenamePropertyCommandClass())
 ########################################################################################
 
 # Retype a custom dynamic property
 
-class DynamicData2RetyePropertyCommandClass(DynamicData2BaseCommandClass):
+class FFDataRetyePropertyCommandClass(FFDataBaseCommandClass):
     """Retype Property Command"""
     def __init__(self):
         self.obj = None
@@ -1722,7 +1722,7 @@ Select new type for {prop}:<br/> </span>
             setattr(self.obj, prop, val)
         except Exception:
             FreeCAD.Console.PrintError(f"""
-DynamicData2: Unable to reset property value {val} for new property of type {newType}
+FFData: Unable to reset property value {val} for new property of type {newType}
 for property {prop} of {self.obj.Label}, using default value for properties of
 this type. You will need to set the value manually.\n""")
 
@@ -1741,17 +1741,17 @@ this type. You will need to set the value manually.\n""")
             return True
         #where nothing is selected and there is only one dd object, use that object
         if len(selection) == 0:
-            dds = [obj for obj in FreeCAD.ActiveDocument.Objects if hasattr(obj,"DynamicData2")]
+            dds = [obj for obj in FreeCAD.ActiveDocument.Objects if hasattr(obj,"FFData")]
             if len(dds) == 1:
                 self.obj = dds[0]
                 return True
         return False
 
-#Gui.addCommand("DynamicData2RetypeProperty", DynamicData2RetypePropertyCommandClass())
+#Gui.addCommand("FFDataRetypeProperty", FFDataRetypePropertyCommandClass())
 ########################################################################################
 # Set the tooltip of a dynamic property
 
-class DynamicData2SetTooltipCommandClass(DynamicData2BaseCommandClass):
+class FFDataSetTooltipCommandClass(FFDataBaseCommandClass):
     """Set Tooltip Command"""
     def __init__(self):
         self.obj = None
@@ -1812,20 +1812,20 @@ class DynamicData2SetTooltipCommandClass(DynamicData2BaseCommandClass):
             return True
         #where nothing is selected and there is only one dd object, use that object
         if len(selection) == 0:
-            dds = [obj for obj in FreeCAD.ActiveDocument.Objects if hasattr(obj,"DynamicData2")]
+            dds = [obj for obj in FreeCAD.ActiveDocument.Objects if hasattr(obj,"FFData")]
             if len(dds) == 1:
                 self.obj = dds[0]
                 return True
         return False
 
-#Gui.addCommand("DynamicData2SetTooltip", DynamicData2SetTooltipCommandClass())
+#Gui.addCommand("FFDataSetTooltip", FFDataSetTooltipCommandClass())
 
 
 ########################################################################################
 # Remove custom dynamic property
 
 
-class DynamicData2RemovePropertyCommandClass(DynamicData2BaseCommandClass):
+class FFDataRemovePropertyCommandClass(FFDataBaseCommandClass):
     """Remove Property Command"""
 
     def __init__(self):
@@ -1855,7 +1855,7 @@ class DynamicData2RemovePropertyCommandClass(DynamicData2BaseCommandClass):
             try:
                 self.obj.removeProperty(item)
             except Exception as ex:
-                FreeCAD.Console.PrintError(f"DynamicData2::Exception cannot remove {item}\n{ex}")
+                FreeCAD.Console.PrintError(f"FFData::Exception cannot remove {item}\n{ex}")
         doc.commitTransaction()
         if self.obj in selection: #refreshes property view
             FreeCADGui.Selection.removeSelection(self.obj)
@@ -1872,19 +1872,19 @@ class DynamicData2RemovePropertyCommandClass(DynamicData2BaseCommandClass):
             return True
         #where nothing is selected and there is only one dd object, use that object
         if len(selection) == 0:
-            dds = [obj for obj in FreeCAD.ActiveDocument.Objects if hasattr(obj,"DynamicData2")]
+            dds = [obj for obj in FreeCAD.ActiveDocument.Objects if hasattr(obj,"FFData")]
             if len(dds) == 1:
                 self.obj = dds[0]
                 return True
         return False
 
-#Gui.addCommand("DynamicData2RemoveProperty", DynamicData2RemovePropertyCommandClass())
+#Gui.addCommand("FFDataRemoveProperty", FFDataRemovePropertyCommandClass())
 
 ########################################################################################
 # Import aliases from spreadsheet
 
 
-class DynamicData2ImportAliasesCommandClass(DynamicData2BaseCommandClass):
+class FFDataImportAliasesCommandClass(FFDataBaseCommandClass):
     """Import Aliases Command"""
 
     def GetResources(self):
@@ -1939,7 +1939,7 @@ class DynamicData2ImportAliasesCommandClass(DynamicData2BaseCommandClass):
         #sanity check
         window = QtGui.QApplication.activeWindow()
         items = ["Do the import, I know what I\'m doing","Cancel"]
-        item, ok = QtGui.QInputDialog.getItem(window,'DynamicData2: Sanity Check',
+        item, ok = QtGui.QInputDialog.getItem(window,'FFData: Sanity Check',
 """Warning: This will modify your spreadsheet.  Undo with Ctrl+Z Undo if it doesn't look right.
 
 It will import the aliases from the spreadsheet and reset them to
@@ -1976,7 +1976,7 @@ items, 0, False, windowFlags)
                 if not line[idx:idx2][-1]=="_": #skip aliases that end in an underscore
                     aliases.append(line[idx:idx2])
                 else:
-                    FreeCAD.Console.PrintWarning('DynamicData2: skipping alias \"'+line[idx:idx2]+'\" because it ends in an underscore (_).\n')
+                    FreeCAD.Console.PrintWarning('FFData: skipping alias \"'+line[idx:idx2]+'\" because it ends in an underscore (_).\n')
 
             for alias in aliases:
                 atr = getattr(sheet,alias)
@@ -2001,14 +2001,14 @@ items, 0, False, windowFlags)
                     propertyType='String'
                     userString=atr
                 else:
-                    FreeCAD.Console.PrintError('DynamicData2: please report: unknown property type error importing alias from spreadsheet ('+str(type(atr))+')\n')
+                    FreeCAD.Console.PrintError('FFData: please report: unknown property type error importing alias from spreadsheet ('+str(type(atr))+')\n')
                     continue
 
                 name = self.fixName(self.dd, alias)
                 if not hasattr(self.dd, name): #avoid adding the same property again
                     self.dd.addProperty('App::Property'+propertyType, name, sheet.Label, propertyType)
                     setattr(self.dd,name,userString)
-                    FreeCAD.Console.PrintMessage(f"DynamicData2: adding property: {name} to {self.dd.Label}, resetting spreadsheet: \
+                    FreeCAD.Console.PrintMessage(f"FFData: adding property: {name} to {self.dd.Label}, resetting spreadsheet: \
                         {sheet.Label}.{alias} to point to {self.dd.Label}.{name}\n")
                     expr = self.getExpression(sheet, alias, aliases)
                     sheet.set(alias, f"={self.dd.Label}.{name}")
@@ -2016,13 +2016,13 @@ items, 0, False, windowFlags)
                     if expr: #will be None if not an expression
                         self.dd.setExpression(name, expr)
                 else:
-                    FreeCAD.Console.PrintWarning(f"DynamicData2: skipping existing property: {name}\n")
+                    FreeCAD.Console.PrintWarning(f"FFData: skipping existing property: {name}\n")
                 continue
 
         doc.commitTransaction()
         doc.recompute()
         if len(aliases) == 0:
-            FreeCAD.Console.PrintMessage('DynamicData2: No aliases found.\n')
+            FreeCAD.Console.PrintMessage('FFData: No aliases found.\n')
             return
         return
 
@@ -2043,7 +2043,7 @@ items, 0, False, windowFlags)
 
         return True
 
-#Gui.addCommand("DynamicData2ImportAliases", DynamicData2ImportAliasesCommandClass())
+#Gui.addCommand("FFDataImportAliases", FFDataImportAliasesCommandClass())
 
 
 
@@ -2051,7 +2051,7 @@ items, 0, False, windowFlags)
 # Import named constraints from sketch
 
 
-class DynamicData2ImportNamedConstraintsCommandClass(DynamicData2BaseCommandClass):
+class FFDataImportNamedConstraintsCommandClass(FFDataBaseCommandClass):
     """Import Named Constraints Command"""
 
     def __init__(self):
@@ -2088,17 +2088,17 @@ class DynamicData2ImportNamedConstraintsCommandClass(DynamicData2BaseCommandClas
         # should never get here, so no need for this code -- command won't be active in these cases
         # if len(sketches)==0:
         #     #todo: handle no selected sketches.  For now, just return
-        #     FreeCAD.Console.PrintMessage("DynamicData2: No selected sketch(es)\n")
+        #     FreeCAD.Console.PrintMessage("FFData: No selected sketch(es)\n")
         #     return
         # if not self.dd:
         #     #todo: handle no dd object selected.  For now, just return
-        #     FreeCAD.Console.PrintMessage("DynamicData2: No selected dd object\n")
+        #     FreeCAD.Console.PrintMessage("FFData: No selected dd object\n")
         #     return
 
         #sanity check
         window = QtGui.QApplication.activeWindow()
         items = ["Do the import, I know what I'm doing","Cancel"]
-        item, ok = QtGui.QInputDialog.getItem(window,'DynamicData2: Sanity Check',
+        item, ok = QtGui.QInputDialog.getItem(window,'FFData: Sanity Check',
 """Warning: This will modify your sketch.
 
 It will import the named constraints from the sketch and reset them to
@@ -2127,7 +2127,7 @@ items, 0 , False, windowFlags)
                     continue
                 if not con.Driving:
                     FreeCAD.Console.PrintWarning(f"\
-DynamicData2: Skipping reference mode constraint: {con.Name} because linking by expression would cause a cyclic \
+FFData: Skipping reference mode constraint: {con.Name} because linking by expression would cause a cyclic \
 dependency and linking by value would produce an incorrect value should the reference value change.\n")
                     continue
                 expr = self.getExpression(sketch, con.Name)
@@ -2137,7 +2137,7 @@ dependency and linking by value would produce an incorrect value should the refe
                             'driving': con.Driving})
 
         if len(constraints) == 0:
-            FreeCAD.Console.PrintMessage('DynamicData2: No named constraints found.\n')
+            FreeCAD.Console.PrintMessage('FFData: No named constraints found.\n')
             return
 
         for con in constraints:
@@ -2154,17 +2154,17 @@ dependency and linking by value would produce an incorrect value should the refe
                 for idx,constraint in enumerate(sketch.Constraints):
                     if constraint.Name == con['constraintName']:
                         sketch.renameConstraint(idx, name)
-                        FreeCAD.Console.PrintWarning(f"DynamicData2: Renaming invalid constraint name: {con['constraintName']} to {name}\n")
+                        FreeCAD.Console.PrintWarning(f"FFData: Renaming invalid constraint name: {con['constraintName']} to {name}\n")
                         break
             if not hasattr(self.dd,importedName): #avoid adding the same property again
                 self.dd.addProperty(f"App::Property{propertyType}", importedName, con['sketchLabel'],f"[{propertyType}] constraint type: [{con['constraintType']}]")
                 setattr(self.dd, importedName, value)
                 self.dd.setExpression(importedName, con['expression'])
-                FreeCAD.Console.PrintMessage(f"DynamicData2: adding property: {importedName} to dd object\n")
+                FreeCAD.Console.PrintMessage(f"FFData: adding property: {importedName} to dd object\n")
                 sketch = con['sketch']
                 sketch.setExpression(f"Constraints.{name}", f"<<{self.dd.Label}>>.{importedName}")
             else:
-                FreeCAD.Console.PrintWarning(f"DynamicData2: skipping existing property: {name}\n")
+                FreeCAD.Console.PrintWarning(f"FFData: skipping existing property: {name}\n")
         FreeCAD.ActiveDocument.commitTransaction()
         doc.recompute()
         return
@@ -2185,23 +2185,23 @@ dependency and linking by value would produce an incorrect value should the refe
         self.dd = dds[0]
         return True
 
-#Gui.addCommand("DynamicData2ImportNamedConstraints", DynamicData2ImportNamedConstraintsCommandClass())
+#Gui.addCommand("FFDataImportNamedConstraints", FFDataImportNamedConstraintsCommandClass())
 
 
 ########################################################################################
 # Copy Property To and/or From dd <--> other object
 
 
-class DynamicData2CopyPropertyCommandClass(DynamicData2BaseCommandClass):
+class FFDataCopyPropertyCommandClass(FFDataBaseCommandClass):
     """Copy Property Command"""
     class CopyDlg(QtGui.QDialog):
 
-        pg = FreeCAD.ParamGet("User parameter:BaseApp/Preferences/Mod/DynamicData2")
+        pg = FreeCAD.ParamGet("User parameter:BaseApp/Preferences/Mod/FFData")
 
         def __init__(self, cmd, obj1, obj2):
-            super(DynamicData2CopyPropertyCommandClass.CopyDlg, self).__init__(Gui.getMainWindow())
+            super(FFDataCopyPropertyCommandClass.CopyDlg, self).__init__(Gui.getMainWindow())
             self.setAttribute(QtCore.Qt.WA_WindowPropagation, True)
-            self.setWindowTitle(f"DynamicData2 v{__version__} Copy / Set / Bind")
+            self.setWindowTitle(f"FFData v{__version__} Copy / Set / Bind")
             icon = QtGui.QIcon(os.path.join(iconPath, 'CopyProperty.svg'))
             self.setWindowIcon(icon)
             self.applied = False #apply button clicked
@@ -2630,7 +2630,7 @@ Break expression binding for selected property of {self.obj1.Label}""")
                 expr = replaceLocalRe.sub(f"{label}.\\1", expr)
                 dstObj.evalExpression(expr) #will raise if invalid
             except Exception as e:
-                FreeCAD.Console.PrintWarning(f"DynamicData2: expression validation failed: {expr}\n{e}\n")
+                FreeCAD.Console.PrintWarning(f"FFData: expression validation failed: {expr}\n{e}\n")
                 failed = True
                 expr = previous
             # qt dialog to edit expression if user wants
@@ -2638,7 +2638,7 @@ Break expression binding for selected property of {self.obj1.Label}""")
                 new_expr, ok = QtGui.QInputDialog.getText(self, "Edit Ambiguous Local Expression",
                                                 f"Edit expression with label added for {dstObj.Label}.{self.Obj1PropName if dstObj==self.obj1 else self.Obj2PropName}: ", text=expr)
                 if not new_expr or not ok:
-                    FreeCAD.Console.PrintError("DynamicData2: operation cancelled by user.\n")
+                    FreeCAD.Console.PrintError("FFData: operation cancelled by user.\n")
                 expr = new_expr
             # no need to validate again, let setExpression handle it if it's bad
             return expr
@@ -2664,21 +2664,21 @@ Break expression binding for selected property of {self.obj1.Label}""")
             try:
                 self.obj1.addProperty(self.Obj2Type, propName, self.Obj2Group, self.Obj2Tip)
             except Exception:
-                FreeCAD.Console.PrintError(f"DynamicData2: Error adding {propName} to {self.obj1.Label}")
+                FreeCAD.Console.PrintError(f"FFData: Error adding {propName} to {self.obj1.Label}")
                 return False
             if self.hasExpr() and self.byExpressionCheckBox.isChecked():
                 try:
                     self.obj1.setExpression(propName, self.validateExpr(self.obj2, self.obj1, self.Obj2Expression))
                     return True
                 except Exception as e:
-                    FreeCAD.Console.PrintError(f"DynamicData2: error {e} setting {self.obj1.Label}.{propName} to {self.Obj2Expression}\n")
+                    FreeCAD.Console.PrintError(f"FFData: error {e} setting {self.obj1.Label}.{propName} to {self.Obj2Expression}\n")
                     return False
             else:
                 try:
                     setattr(self.obj1, propName, self.Obj2Value)
                     return True
                 except Exception:
-                    FreeCAD.Console.PrintError(f"DynamicData2: Error setting {propName} to {self.Obj2Value}, but property was created.\n")
+                    FreeCAD.Console.PrintError(f"FFData: Error setting {propName} to {self.Obj2Value}, but property was created.\n")
                     return False
 
         def copyRight(self):
@@ -2692,21 +2692,21 @@ Break expression binding for selected property of {self.obj1.Label}""")
             try:
                 self.obj2.addProperty(self.Obj1Type, propName, self.Obj1Group, self.Obj1Tip)
             except Exception:
-                FreeCAD.Console.PrintError(f"DynamicData2: Error adding {propName} to {self.obj2.Label}")
+                FreeCAD.Console.PrintError(f"FFData: Error adding {propName} to {self.obj2.Label}")
                 return False
             if self.hasExpr() and self.byExpressionCheckBox.isChecked():
                 try:
                     self.obj2.setExpression(propName, self.validateExpr(self.obj1, self.obj2, self.Obj1Expression))
                     return True
                 except Exception as e:
-                    FreeCAD.Console.PrintError(f"DynamicData2: error {e} setting {self.obj2.Label}.{propName} to {self.Obj1Expression}\n")
+                    FreeCAD.Console.PrintError(f"FFData: error {e} setting {self.obj2.Label}.{propName} to {self.Obj1Expression}\n")
                     return False
             else:
                 try:
                     setattr(self.obj2, propName, self.Obj1Value)
                     return True
                 except Exception:
-                    FreeCAD.Console.PrintError(f"DynamicData2: Error setting {propName} to {self.Obj1Value}, but property was created.\n")
+                    FreeCAD.Console.PrintError(f"FFData: Error setting {propName} to {self.Obj1Value}, but property was created.\n")
                     return False
 
         def setLeft(self):
@@ -2714,20 +2714,20 @@ Break expression binding for selected property of {self.obj1.Label}""")
             #first check that the property types are a match
             if self.Obj1Type != self.Obj2Type:
                 FreeCAD.Console.PrintError(f"""
-DynamicData2: Type mismatch: {self.obj2.Label}.{self.Obj2PropName} is type {self.Obj2Type}
+FFData: Type mismatch: {self.obj2.Label}.{self.Obj2PropName} is type {self.Obj2Type}
 while {self.obj1.Label}.{self.Obj1PropName} is type {self.Obj1Type}""")
                 return False
             #now check to see if the property is bound by an expression already
             if self.Obj1Expression:
                 FreeCAD.Console.PrintWarning(f"""
-DynamicData2 warning: {self.obj1.Label}.{self.Obj1PropName} was bound by an expression:\n{self.Obj1Expression}\nbut it has now been cleared.""")
+FFData warning: {self.obj1.Label}.{self.Obj1PropName} was bound by an expression:\n{self.Obj1Expression}\nbut it has now been cleared.""")
                 self.obj1.setExpression(self.Obj1PropName, None)
             if self.hasExpr() and self.byExpressionCheckBox.isChecked():
                 try:
                     self.obj1.setExpression(self.Obj1PropName, self.validateExpr(self.obj2, self.obj1, self.Obj2Expression))
                     return True
                 except Exception as e:
-                    FreeCAD.Console.PrintError(f"DynamicData2: error {e} setting {self.obj1.Label}.{self.Obj1PropName} to {self.Obj2Expression}\n")
+                    FreeCAD.Console.PrintError(f"FFData: error {e} setting {self.obj1.Label}.{self.Obj1PropName} to {self.Obj2Expression}\n")
                     return False
             else:
                 try:
@@ -2737,7 +2737,7 @@ DynamicData2 warning: {self.obj1.Label}.{self.Obj1PropName} was bound by an expr
                         setattr(self.obj1.ViewObject, self.Obj1PropName, self.Obj2Value)
                     return True
                 except Exception as e:
-                    FreeCAD.Console.PrintError(f"DynamicData2: error {e} setting {self.obj1.Label}.{self.Obj1PropName} to {self.Obj2Value}\n")
+                    FreeCAD.Console.PrintError(f"FFData: error {e} setting {self.obj1.Label}.{self.Obj1PropName} to {self.Obj2Value}\n")
                     return False
 
         def setRight(self):
@@ -2745,20 +2745,20 @@ DynamicData2 warning: {self.obj1.Label}.{self.Obj1PropName} was bound by an expr
             #first check that the property types are a match
             if self.Obj1Type != self.Obj2Type:
                 FreeCAD.Console.PrintError(f"""
-DynamicData2: Type mismatch: {self.obj2.Label}.{self.Obj2PropName} is type {self.Obj2Type}
+FFData: Type mismatch: {self.obj2.Label}.{self.Obj2PropName} is type {self.Obj2Type}
 while {self.obj1.Label}.{self.Obj1PropName} is type {self.Obj1Type}""")
                 return False
             #now check to see if the property is bound by an expression already
             if self.Obj2Expression:
                 FreeCAD.Console.PrintWarning(f"""
-DynamicData2 warning: {self.obj2.Label}.{self.Obj2PropName} was bound by an expression:\n{self.Obj2Expression}\nbut it has now been cleared.""")
+FFData warning: {self.obj2.Label}.{self.Obj2PropName} was bound by an expression:\n{self.Obj2Expression}\nbut it has now been cleared.""")
                 self.obj2.setExpression(self.Obj2PropName, None)
             if not self.Obj1IsView and self.hasExpr() and self.byExpressionCheckBox.isChecked():
                 try:
                     self.obj2.setExpression(self.Obj2PropName, self.validateExpr(self.obj1, self.obj2, self.Obj1Expression))
                     return True
                 except Exception as e:
-                    FreeCAD.Console.PrintError(f"DynamicData2: error {e} setting {self.obj2.Label}.{self.Obj2PropName} to {self.Obj1Expression}\n")
+                    FreeCAD.Console.PrintError(f"FFData: error {e} setting {self.obj2.Label}.{self.Obj2PropName} to {self.Obj1Expression}\n")
                     return False
             else:
                 try:
@@ -2768,7 +2768,7 @@ DynamicData2 warning: {self.obj2.Label}.{self.Obj2PropName} was bound by an expr
                         setattr(self.obj2.ViewObject, self.Obj2PropName, self.Obj1Value)
                     return True
                 except Exception as e:
-                    FreeCAD.Console.PrintError(f"DynamicData2: error {e} setting {self.obj2.Label}.{self.Obj2PropName} to {self.Obj1Value}\n")
+                    FreeCAD.Console.PrintError(f"FFData: error {e} setting {self.obj2.Label}.{self.Obj2PropName} to {self.Obj1Value}\n")
                     return False
 
         def bindRight(self):
@@ -2776,7 +2776,7 @@ DynamicData2 warning: {self.obj2.Label}.{self.Obj2PropName} was bound by an expr
             #check for a type mismatch
             if self.Obj1Type != self.Obj2Type:
                 FreeCAD.Console.PrintError(f"""
-DynamicData2 error: Type mismatch.  {self.obj1.Label}.{self.Obj1PropName} is type {self.Obj1Type} where
+FFData error: Type mismatch.  {self.obj1.Label}.{self.Obj1PropName} is type {self.Obj1Type} where
 {self.obj2.Label}.{self.Obj2PropName} is type {self.Obj2Type}""")
                 return False
             # check for cyclic dependency
@@ -2785,16 +2785,16 @@ DynamicData2 error: Type mismatch.  {self.obj1.Label}.{self.Obj1PropName} is typ
             # to see if obj2 is in obj1's inlist
             if self.obj2 in self.obj1.InListRecursive:
                 FreeCAD.Console.PrintError(f"""
-DynamicData2 error: Cannot bind  {self.obj1.Label}.{self.Obj1PropName} to {self.obj2.Label}.{self.Obj2PropName}
+FFData error: Cannot bind  {self.obj1.Label}.{self.Obj1PropName} to {self.obj2.Label}.{self.Obj2PropName}
 because this would create a cyclic dependency.""")
                 return False
             if self.Obj1IsView:
                 FreeCAD.Console.PrintError(f"""
-DynamicData2 error: {self.obj1.Label}.ViewObject.{self.Obj1PropName} is a view object expression,
+FFData error: {self.obj1.Label}.ViewObject.{self.Obj1PropName} is a view object expression,
 which cannot be bound by expression.\n""")
                 return False
             FreeCAD.Console.PrintMessage(f"""
-DynamicData2: binding {self.obj1.Label}.{self.Obj1PropName} to {self.obj2.Label}.{self.Obj2PropName}""")
+FFData: binding {self.obj1.Label}.{self.Obj1PropName} to {self.obj2.Label}.{self.Obj2PropName}""")
             self.obj1.setExpression(self.Obj1PropName, f"{self.obj2.Name}.{self.Obj2PropName}")
             return True
 
@@ -2803,7 +2803,7 @@ DynamicData2: binding {self.obj1.Label}.{self.Obj1PropName} to {self.obj2.Label}
             #check for a type mismatch
             if self.Obj2Type != self.Obj1Type:
                 FreeCAD.Console.PrintError(f"""
-DynamicData2 error: Type mismatch.  {self.obj2.Label}.{self.Obj2PropName} is type {self.Obj2Type} where
+FFData error: Type mismatch.  {self.obj2.Label}.{self.Obj2PropName} is type {self.Obj2Type} where
 {self.obj1.Label}.{self.Obj1PropName} is type {self.Obj1Type}""")
                 return False
             # check for cyclic dependency
@@ -2812,16 +2812,16 @@ DynamicData2 error: Type mismatch.  {self.obj2.Label}.{self.Obj2PropName} is typ
             # to see if obj1 is in obj2's inlist
             if self.obj1 in self.obj2.InListRecursive:
                 FreeCAD.Console.PrintError(f"""
-DynamicData2 error: Cannot bind  {self.obj2.Label}.{self.Obj2PropName} to {self.obj1.Label}.{self.Obj1PropName}
+FFData error: Cannot bind  {self.obj2.Label}.{self.Obj2PropName} to {self.obj1.Label}.{self.Obj1PropName}
 because this would create a cyclic dependency.""")
                 return False
             if self.Obj2IsView:
                 FreeCAD.Console.PrintError(f"""
-DynamicData2 error: {self.obj2.Label}.ViewObject.{self.Obj2PropName} is a view object expression,
+FFData error: {self.obj2.Label}.ViewObject.{self.Obj2PropName} is a view object expression,
 which cannot be bound by expression.\n""")
                 return False
             FreeCAD.Console.PrintMessage(f"""
-DynamicData2: binding {self.obj2.Label}.{self.Obj2PropName} to {self.obj1.Label}.{self.Obj1PropName}""")
+FFData: binding {self.obj2.Label}.{self.Obj2PropName} to {self.obj1.Label}.{self.Obj1PropName}""")
             self.obj2.setExpression(self.Obj2PropName, f"{self.obj1.Name}.{self.Obj1PropName}")
             return True
 
@@ -2832,11 +2832,11 @@ DynamicData2: binding {self.obj2.Label}.{self.Obj2PropName} to {self.obj1.Label}
             # radio button by mistake, so alert to the error and return
             if not self.Obj1Expression:
                 FreeCAD.Console.PrintError(f"""
-DynamicData2 error: {self.obj1.Label}.{self.Obj1PropName} is not bound by an expression.\n""")
+FFData error: {self.obj1.Label}.{self.Obj1PropName} is not bound by an expression.\n""")
                 return False
             if self.Obj2IsView:
                 FreeCAD.Console.PrintError(f"""
-DynamicData2 error: {self.obj2.Label}.ViewObject.{self.Obj2PropName} is a view object expression,
+FFData error: {self.obj2.Label}.ViewObject.{self.Obj2PropName} is a view object expression,
 which cannot be bound by expression.\n""")
                 return False
             self.obj1.setExpression(self.Obj1PropName, None)
@@ -2849,12 +2849,12 @@ which cannot be bound by expression.\n""")
             # radio button by mistake, so alert to the error and return
             if not self.Obj2Expression:
                 FreeCAD.Console.PrintError(f"""
-DynamicData2 error: {self.obj2.Label}.{self.Obj2PropName} is not bound by an expression.\n""")
+FFData error: {self.obj2.Label}.{self.Obj2PropName} is not bound by an expression.\n""")
                 return False
             #check if this is a view object property, which cannot be bound by expression
             if self.Obj2IsView:
                 FreeCAD.Console.PrintError(f"""
-DynamicData2 error: {self.obj2.Label}.ViewObject.{self.Obj2PropName} is a view object expression,
+FFData error: {self.obj2.Label}.ViewObject.{self.Obj2PropName} is a view object expression,
 which cannot be bound by expression.\n""")
                 return False
             self.obj2.setExpression(self.Obj2PropName, None)
@@ -2862,9 +2862,9 @@ which cannot be bound by expression.\n""")
 
 
         def fillUpList(self, obj, objList, idx):
-            pg = FreeCAD.ParamGet("User parameter:BaseApp/Preferences/Mod/DynamicData2")
+            pg = FreeCAD.ParamGet("User parameter:BaseApp/Preferences/Mod/FFData")
             supportViewObjectProperties = pg.GetBool('SupportViewObjectProperties', False)
-            blacklist = ["ExpressionEngine","Proxy","Shape","DynamicData2"]
+            blacklist = ["ExpressionEngine","Proxy","Shape","FFData"]
             props = self.cmd.getAllProperties(obj, supportViewObjectProperties, blacklist)
             for prop in props:
                 item = QtGui.QListWidgetItem(prop)
@@ -2892,7 +2892,7 @@ which cannot be bound by expression.\n""")
             radioBtn = self.btnGroup.checkedButton()
             if radioBtn:
                 func = func_map.get(radioBtn.objectName())
-                self.obj1.Document.openTransaction(f"DynamicData2: {func.__name__}")
+                self.obj1.Document.openTransaction(f"FFData: {func.__name__}")
                 retval = func()
                 if retval == None: #user aborted
                     self.obj1.Document.abortTransaction()
@@ -2934,7 +2934,7 @@ which cannot be bound by expression.\n""")
         self.obj1.Document.recompute()
 
     def doDlg(self):
-        dlg = DynamicData2CopyPropertyCommandClass.CopyDlg(self, self.obj1, self.obj2)
+        dlg = FFDataCopyPropertyCommandClass.CopyDlg(self, self.obj1, self.obj2)
         dlg.exec_()
         return dlg
 
@@ -2953,22 +2953,22 @@ which cannot be bound by expression.\n""")
             return True
         return False
 
-class DynamicData2Commands:
+class FFDataCommands:
     def GetCommands(self):
 
-        return tuple(["DynamicData2CreateObject", "DynamicData2AddProperty",
-                    "DynamicData2EditEnumeration", "DynamicData2CreateConfiguration",
-                    "DynamicData2RemoveProperty", "DynamicData2ImportNamedConstraints",
-                    "DynamicData2ImportAliases","DynamicData2CopyProperty",
-                    "DynamicData2RenameProperty","DynamicData2SetTooltip",
-                    "DynamicData2RetypeProperty",
-                    "DynamicData2MoveToNewGroup","DynamicData2Settings"]) # a tuple of command names that you want to group
+        return tuple(["FFDataCreateObject", "FFDataAddProperty",
+                    "FFDataEditEnumeration", "FFDataCreateConfiguration",
+                    "FFDataRemoveProperty", "FFDataImportNamedConstraints",
+                    "FFDataImportAliases","FFDataCopyProperty",
+                    "FFDataRenameProperty","FFDataSetTooltip",
+                    "FFDataRetypeProperty",
+                    "FFDataMoveToNewGroup","FFDataSettings"]) # a tuple of command names that you want to group
 
     def GetDefaultCommand(self): # return the index of the tuple of the default command. This method is optional and when not implemented '0' is used
         return 0
 
     def GetResources(self):
-        return {'Pixmap'  : os.path.join( iconPath , 'CreateObject.svg'), 'MenuText': 'DynamicData2 Commands', 'ToolTip': 'DynamicData2 commands'}
+        return {'Pixmap'  : os.path.join( iconPath , 'CreateObject.svg'), 'MenuText': 'FFData Commands', 'ToolTip': 'FFData commands'}
 
     def IsActive(self): # optional
         return True
@@ -2977,7 +2977,7 @@ class DynamicData2Commands:
 
 # ============================================================================
 #  Sliders — real-time slider panel + timeline + keyframes
-#  Supports: DynamicData2 object properties, Sketch constraints
+#  Supports: FFData object properties, Sketch constraints
 # ============================================================================
 
 # --- Data sources --------------------------------------------------------
@@ -3083,7 +3083,7 @@ class _SketchSource:
                             val = __import__("math").radians(val)
                         self.obj.setDatum(i, val)
                     except (TypeError, RuntimeError, ValueError):
-                        App.Console.PrintWarning(f"Slider: cannot set constraint #{i} ({c.Type}) to {val}\n")
+                        pass
                     break
         except (AttributeError, IndexError): pass
     def recompute(self):
@@ -3122,7 +3122,7 @@ class _MultiSource:
         return (self.sources[pref] if pref else self.sources[list(self.sources)[0]]).meta(inner, ptype)
     def recompute(self): FreeCAD.ActiveDocument.recompute()
 
-class DynamicData2SlidersCommandClass:
+class FFDataSlidersCommandClass:
     """Sliders for any object properties or Sketch constraints."""
 
     def GetResources(self):
@@ -3239,7 +3239,7 @@ class DynamicData2SlidersCommandClass:
                 self._track_points = []
                 self._capture_data = {}
                 self._capturing = False
-                self._pg = FreeCAD.ParamGet("User parameter:BaseApp/Preferences/Mod/DynamicData2/SlidersPanel")
+                self._pg = FreeCAD.ParamGet("User parameter:BaseApp/Preferences/Mod/FFData/SlidersPanel")
                 self._plist = list(self.src.items())
                 self._build(self._plist)
                 self._open_restore = {pn: self.src.get(pn) for pn in self.slots}
@@ -3913,7 +3913,7 @@ class DynamicData2SlidersCommandClass:
                         self._generate_paths()
                         self._clear_tracked_points()
                     pn = self._sel.currentData()
-                    self._anim = {"mode": "bounce", "prop": pn, "lo": self._lo.value(), "hi": self._hi.value(), "step": self._stp.value()}
+                    self._anim = {"mode": "bounce", "prop": pn, "lo": self._lo.value(), "hi": self._hi.value(), "step": self._stp.value(), "cur": self.src.get(pn)}
                     self._timer.start(self._timer_interval())
                 else:
                     self._timer.stop(); self._anim = None; self._restore_vals()
@@ -4057,45 +4057,46 @@ class DynamicData2SlidersCommandClass:
                 else:
                     self._status.setText("No paths (need ≥4 frames)")
             def _tick(self):
-                try:
-                    if self._anim:
-                        a = self._anim
-                        if a.get("mode") == "tracks":
-                            dt = self._timer_interval() / 1000.0
-                            elapsed = a["elapsed"] + dt
-                            a["elapsed"] = elapsed
-                            all_done = True
-                            for tr in a.get("tracks", []):
-                                if elapsed < tr["dur"]:
-                                    t = elapsed / tr["dur"]
-                                    v = tr["start"] + (tr["target"] - tr["start"]) * t
-                                    self.src.set(tr["prop"], v)
-                                    all_done = False
-                                else:
-                                    self.src.set(tr["prop"], tr["target"])
-                            self.src.recompute(); self._sync_display()
-                            if all_done:
-                                if a.get("loop"):
-                                    a["elapsed"] = 0.0
-                                else:
-                                    self._set_play_buttons(False)
-                        elif a.get("mode") == "bounce":
-                            v = self.src.get(a["prop"]) + a.get("step", 0.3)
-                            if v >= a.get("hi", 360): v = a.get("lo", 0)
-                            self.src.set(a["prop"], v)
-                            self.src.recompute()
-                            self._sync_display()
-                    elif self.keyframes:
-                        self.currentFrame += 1
-                        if self.currentFrame > self.maxFrame: self.currentFrame = 0
-                        self._interpolate(); self._sync_display()
-                    else:
-                        self._set_play_buttons(False)
-                    self._record_tracked_points()
-                except Exception:
-                    App.Console.PrintError("Slider tick error, stopping\n")
-                    self._timer.stop()
-                    self._anim = None
+                if self._anim:
+                    a = self._anim
+                    if a.get("mode") == "tracks":
+                        dt = self._timer_interval() / 1000.0
+                        elapsed = a["elapsed"] + dt
+                        a["elapsed"] = elapsed
+                        all_done = True
+                        for tr in a.get("tracks", []):
+                            if elapsed < tr["dur"]:
+                                t = elapsed / tr["dur"]
+                                v = tr["start"] + (tr["target"] - tr["start"]) * t
+                                self.src.set(tr["prop"], v)
+                                all_done = False
+                            else:
+                                self.src.set(tr["prop"], tr["target"])
+                        try: self.src.recompute()
+                        except: pass
+                        try: self._sync_display()
+                        except: pass
+                        if all_done:
+                            if a.get("loop"):
+                                a["elapsed"] = 0.0
+                            else:
+                                self._set_play_buttons(False)
+                    elif a.get("mode") == "bounce":
+                        v = a["cur"] + a.get("step", 0.3)
+                        if v > a["hi"]: v = a["lo"]
+                        a["cur"] = v
+                        self.src.set(a["prop"], v)
+                        try: self.src.recompute()
+                        except: pass
+                        try: self._sync_display()
+                        except: pass
+                elif self.keyframes:
+                    self.currentFrame += 1
+                    if self.currentFrame > self.maxFrame: self.currentFrame = 0
+                    self._interpolate()
+                    try: self._sync_display()
+                    except: pass
+                else:
                     self._set_play_buttons(False)
 
         if hasattr(self, 'panel') and self.panel:
@@ -4105,18 +4106,18 @@ class DynamicData2SlidersCommandClass:
         self.panel.show(); self.panel.raise_(); self.panel.activateWindow()
 
 
-Gui.addCommand("DynamicData2CreateObject", DynamicData2CreateObjectCommandClass())
-Gui.addCommand("DynamicData2AddProperty", DynamicData2AddPropertyCommandClass())
-Gui.addCommand("DynamicData2RemoveProperty", DynamicData2RemovePropertyCommandClass())
-Gui.addCommand("DynamicData2EditEnumeration",DynamicData2EditEnumerationCommandClass())
-Gui.addCommand("DynamicData2CreateConfiguration", DynamicData2CreateConfigurationCommandClass())
-Gui.addCommand("DynamicData2MoveToNewGroup", DynamicData2MoveToNewGroupCommandClass())
-Gui.addCommand("DynamicData2ImportNamedConstraints", DynamicData2ImportNamedConstraintsCommandClass())
-Gui.addCommand("DynamicData2ImportAliases", DynamicData2ImportAliasesCommandClass())
-Gui.addCommand("DynamicData2RenameProperty",DynamicData2RenamePropertyCommandClass())
-Gui.addCommand("DynamicData2RetypeProperty", DynamicData2RetyePropertyCommandClass())
-Gui.addCommand("DynamicData2SetTooltip", DynamicData2SetTooltipCommandClass())
-Gui.addCommand("DynamicData2Settings", DynamicData2SettingsCommandClass())
-Gui.addCommand("DynamicData2CopyProperty", DynamicData2CopyPropertyCommandClass())
-Gui.addCommand("DynamicData2Sliders", DynamicData2SlidersCommandClass())
-Gui.addCommand("DynamicData2Commands", DynamicData2Commands())
+Gui.addCommand("FFDataCreateObject", FFDataCreateObjectCommandClass())
+Gui.addCommand("FFDataAddProperty", FFDataAddPropertyCommandClass())
+Gui.addCommand("FFDataRemoveProperty", FFDataRemovePropertyCommandClass())
+Gui.addCommand("FFDataEditEnumeration",FFDataEditEnumerationCommandClass())
+Gui.addCommand("FFDataCreateConfiguration", FFDataCreateConfigurationCommandClass())
+Gui.addCommand("FFDataMoveToNewGroup", FFDataMoveToNewGroupCommandClass())
+Gui.addCommand("FFDataImportNamedConstraints", FFDataImportNamedConstraintsCommandClass())
+Gui.addCommand("FFDataImportAliases", FFDataImportAliasesCommandClass())
+Gui.addCommand("FFDataRenameProperty",FFDataRenamePropertyCommandClass())
+Gui.addCommand("FFDataRetypeProperty", FFDataRetyePropertyCommandClass())
+Gui.addCommand("FFDataSetTooltip", FFDataSetTooltipCommandClass())
+Gui.addCommand("FFDataSettings", FFDataSettingsCommandClass())
+Gui.addCommand("FFDataCopyProperty", FFDataCopyPropertyCommandClass())
+Gui.addCommand("FFDataSliders", FFDataSlidersCommandClass())
+Gui.addCommand("FFDataCommands", FFDataCommands())

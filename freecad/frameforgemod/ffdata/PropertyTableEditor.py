@@ -147,7 +147,7 @@ class PropertyTableEditor(QtGui.QDialog):
         props = self.cmd.getDynamicProperties(self.obj)
         self.table.blockSignals(True)
         for prop in props:
-            if prop == "DynamicData2":
+            if prop == "FFData":
                 continue
             # Get property info
             full_type = self.obj.getTypeIdOfProperty(prop)
@@ -383,7 +383,7 @@ class PropertyTableEditor(QtGui.QDialog):
             return
 
         doc = FreeCAD.ActiveDocument
-        doc.openTransaction("DynamicData2: Edit Properties")
+        doc.openTransaction("FFData: Edit Properties")
 
         try:
             # 1. Delete removed properties

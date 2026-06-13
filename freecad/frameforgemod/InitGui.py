@@ -207,11 +207,11 @@ class FrameForgemod(Gui.Workbench):
     ]
 
     toolbox_dynamicdata = [
-        "DynamicData2CreateObject",
-        "DynamicData2AddProperty",
-        "DynamicData2CopyProperty",
-        "DynamicData2CreateConfiguration",
-        "DynamicData2Sliders",
+        "FFDataCreateObject",
+        "FFDataAddProperty",
+        "FFDataCopyProperty",
+        "FFDataCreateConfiguration",
+        "FFDataSliders",
     ]
 
     toolbox_other = ["frameforgemod_AddVent", "frameforgemod_PatternFill", "frameforgemod_OffsetPlane"]
@@ -269,7 +269,7 @@ class FrameForgemod(Gui.Workbench):
             "freecad.frameforgemod.adjust_profile_end_tool",
         ]:
             importlib.import_module(_m)
-        importlib.import_module("freecad.frameforgemod.dynamicdata.DynamicDataCmd")
+        importlib.import_module("freecad.frameforgemod.ffdata.ffdata_cmd")
 
         App.Console.PrintMessage(translate("frameforgemod", "Switching to frameforge") + "\n")
 
@@ -288,8 +288,8 @@ class FrameForgemod(Gui.Workbench):
         self.appendToolbar(translate("frameforgemod", "Frameforge Output"), self.toolbox_output)
         self.appendMenu(translate("frameforgemod", "Frameforge Output"), self.toolbox_output)
 
-        self.appendToolbar(translate("frameforgemod", "Dynamic Data"), self.toolbox_dynamicdata)
-        self.appendMenu(translate("frameforgemod", "Dynamic Data"), self.toolbox_dynamicdata)
+        self.appendToolbar(translate("frameforgemod", "FF Data"), self.toolbox_dynamicdata)
+        self.appendMenu(translate("frameforgemod", "FF Data"), self.toolbox_dynamicdata)
 
         self.appendToolbar(translate("frameforgemod", "Frameforge Utilities"), self.toolbox_utilities)
         self.appendMenu(translate("frameforgemod", "Frameforge Utilities"), self.toolbox_utilities)

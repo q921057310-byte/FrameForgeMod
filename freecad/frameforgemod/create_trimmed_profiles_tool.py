@@ -367,7 +367,7 @@ class TrimToolGroup:
 
     def GetResources(self):
         return {
-            "Pixmap": os.path.join(ICONPATH, "trim_extend.svg"),
+            "Pixmap": os.path.join(ICONPATH, "corner-end-trim.svg"),
             "MenuText": translate("frameforgemod", "Trim Profile"),
             "ToolTip": translate("frameforgemod",
                                 "Trim profile ends or adjust offsets"),
